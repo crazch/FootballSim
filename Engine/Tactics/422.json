@@ -1,0 +1,18 @@
+{
+  "id":          "4-4-2",
+  "displayName": "4-4-2 (Classic)",
+  "shapeLabel":  "4-4-2",
+  "slots": [
+    { "slotIndex": 0,  "role": "GK",  "anchorX": 0.50, "anchorY": 0.05 },
+    { "slotIndex": 1,  "role": "RB",  "anchorX": 0.80, "anchorY": 0.22 },
+    { "slotIndex": 2,  "role": "CB",  "anchorX": 0.62, "anchorY": 0.17 },
+    { "slotIndex": 3,  "role": "CB",  "anchorX": 0.38, "anchorY": 0.17 },
+    { "slotIndex": 4,  "role": "LB",  "anchorX": 0.20, "anchorY": 0.22 },
+    { "slotIndex": 5,  "role": "WF",  "anchorX": 0.82, "anchorY": 0.48 },
+    { "slotIndex": 6,  "role": "CM",  "anchorX": 0.62, "anchorY": 0.42 },
+    { "slotIndex": 7,  "role": "CM",  "anchorX": 0.38, "anchorY": 0.42 },
+    { "slotIndex": 8,  "role": "WF",  "anchorX": 0.18, "anchorY": 0.48 },
+    { "slotIndex": 9,  "role": "ST",  "anchorX": 0.62, "anchorY": 0.76 },
+    { "slotIndex": 10, "role": "ST",  "anchorX": 0.38, "anchorY": 0.76 }
+  ]
+}

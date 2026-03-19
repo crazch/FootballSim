@@ -1,0 +1,18 @@
+{
+  "id":          "3-5-2",
+  "displayName": "3-5-2 (Wing Backs)",
+  "shapeLabel":  "3-5-2",
+  "slots": [
+    { "slotIndex": 0,  "role": "GK",  "anchorX": 0.50, "anchorY": 0.05 },
+    { "slotIndex": 1,  "role": "CB",  "anchorX": 0.70, "anchorY": 0.18 },
+    { "slotIndex": 2,  "role": "CB",  "anchorX": 0.50, "anchorY": 0.15 },
+    { "slotIndex": 3,  "role": "CB",  "anchorX": 0.30, "anchorY": 0.18 },
+    { "slotIndex": 4,  "role": "WB",  "anchorX": 0.88, "anchorY": 0.40 },
+    { "slotIndex": 5,  "role": "CM",  "anchorX": 0.65, "anchorY": 0.38 },
+    { "slotIndex": 6,  "role": "CDM", "anchorX": 0.50, "anchorY": 0.32 },
+    { "slotIndex": 7,  "role": "CM",  "anchorX": 0.35, "anchorY": 0.38 },
+    { "slotIndex": 8,  "role": "WB",  "anchorX": 0.12, "anchorY": 0.40 },
+    { "slotIndex": 9,  "role": "ST",  "anchorX": 0.60, "anchorY": 0.76 },
+    { "slotIndex": 10, "role": "ST",  "anchorX": 0.40, "anchorY": 0.76 }
+  ]
+}

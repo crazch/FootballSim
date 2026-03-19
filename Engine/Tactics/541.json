@@ -1,0 +1,18 @@
+{
+  "id":          "5-4-1",
+  "displayName": "5-4-1 (Defensive)",
+  "shapeLabel":  "5-4-1",
+  "slots": [
+    { "slotIndex": 0,  "role": "GK",  "anchorX": 0.50, "anchorY": 0.05 },
+    { "slotIndex": 1,  "role": "WB",  "anchorX": 0.88, "anchorY": 0.22 },
+    { "slotIndex": 2,  "role": "CB",  "anchorX": 0.70, "anchorY": 0.16 },
+    { "slotIndex": 3,  "role": "CB",  "anchorX": 0.50, "anchorY": 0.13 },
+    { "slotIndex": 4,  "role": "CB",  "anchorX": 0.30, "anchorY": 0.16 },
+    { "slotIndex": 5,  "role": "WB",  "anchorX": 0.12, "anchorY": 0.22 },
+    { "slotIndex": 6,  "role": "WF",  "anchorX": 0.80, "anchorY": 0.45 },
+    { "slotIndex": 7,  "role": "CM",  "anchorX": 0.60, "anchorY": 0.40 },
+    { "slotIndex": 8,  "role": "CM",  "anchorX": 0.40, "anchorY": 0.40 },
+    { "slotIndex": 9,  "role": "WF",  "anchorX": 0.20, "anchorY": 0.45 },
+    { "slotIndex": 10, "role": "ST",  "anchorX": 0.50, "anchorY": 0.75 }
+  ]
+}
