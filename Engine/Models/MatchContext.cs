@@ -43,7 +43,9 @@
 //     Incremented by BallSystem each tick based on BallState.OwnerId.
 // =============================================================================
 
+using System;
 using System.Collections.Generic;
+using FootballSim.Engine.Systems;
 
 namespace FootballSim.Engine.Models
 {
@@ -149,6 +151,26 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public int RandomSeed;
 
+        /// <summary>
+        /// Seeded random instance. Initialised from RandomSeed in MatchContext constructor.
+        /// CollisionSystem is the sole consumer — all probability draws go through
+        /// CollisionSystem.NextDouble(ctx) which calls ctx.Random.NextDouble().
+        /// NEVER construct a new Random() inside any system — always use this instance.
+        /// Same seed → identical match replay.
+        /// </summary>
+        public Random Random;
+
+        // ── Collision result bus ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Written by CollisionSystem after each contest resolution.
+        /// Read by EventSystem in the same tick to emit the correct MatchEvent.
+        /// Reset to CollisionResultType.None at the start of CollisionSystem.Tick().
+        /// Only the highest-impact result per tick is stored
+        /// (Goal > Tackle > Intercept > LooseClaim).
+        /// </summary>
+        public CollisionResult LastCollisionResult;
+
         // ── Constructor ───────────────────────────────────────────────────────
 
         /// <summary>
@@ -169,6 +191,7 @@ namespace FootballSim.Engine.Models
             AwayScore = 0;
             HomePossessionTicks = 0;
             AwayPossessionTicks = 0;
+            Random = new Random(RandomSeed); // seeded for deterministic replay
         }
 
         // ── Helpers (minimal — context is mostly data) ────────────────────────
