@@ -22,7 +22,8 @@ export_presets.cfg
 Thumbs.db
 
 # --- Project Specific ---
-# Keep your .json data files (don't ignore them!)
-# But ignore any auto-generated logs or temporary replays
 Engine/Debug/*.log
 *.tmp
+
+# Godot UID files
+*.uid
