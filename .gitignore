@@ -1,0 +1,28 @@
+# --- Godot ---
+.godot/
+*.translation
+*.import
+export_presets.cfg
+
+# --- .NET / C# ---
+# Ignore all bin and obj folders recursively
+[Bb]in/
+[Oo]bj/
+# Visual Studio / Rider / VS Code cache
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- Project Specific ---
+# Keep your .json data files (don't ignore them!)
+# But ignore any auto-generated logs or temporary replays
+Engine/Debug/*.log
+*.tmp
