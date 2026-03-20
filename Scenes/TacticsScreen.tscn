@@ -1,0 +1,276 @@
+[gd_scene format=3 uid="uid://cehll6kmmypij"]
+
+[ext_resource type="Script" uid="uid://ccqv4ixp725bg" path="res://Scripts/Screens/TacticsScreen.gd" id="1_tactics"]
+
+[node name="TacticsScreen" type="Control" unique_id=1982175708 node_paths=PackedStringArray("home_name_edit", "away_name_edit", "home_formation_dropdown", "away_formation_dropdown", "home_preset_dropdown", "away_preset_dropdown", "home_kit_primary_picker", "away_kit_primary_picker", "home_kit_sec_picker", "away_kit_sec_picker", "home_slider_grid", "away_slider_grid", "home_squad_grid", "away_squad_grid", "kick_off_button", "error_label")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_tactics")
+home_name_edit = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeNameRow/HomeNameEdit")
+away_name_edit = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayNameRow/AwayNameEdit")
+home_formation_dropdown = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeFormRow/HomeFormDropdown")
+away_formation_dropdown = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayFormRow/AwayFormDropdown")
+home_preset_dropdown = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomePresetRow/HomePresetDropdown")
+away_preset_dropdown = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayPresetRow/AwayPresetDropdown")
+home_kit_primary_picker = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow/HomeKitPrimary")
+away_kit_primary_picker = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow/AwayKitPrimary")
+home_kit_sec_picker = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow/HomeKitSecondary")
+away_kit_sec_picker = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow/AwayKitSecondary")
+home_slider_grid = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer/Tactics/HomeSliderGrid")
+away_slider_grid = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer/Tactics/AwaySliderGrid")
+home_squad_grid = NodePath("Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer/Squad/HomeSquadGrid")
+away_squad_grid = NodePath("Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer/Squad/AwaySquadGrid")
+kick_off_button = NodePath("Root/MainVBox/BottomRow/KickOffButton")
+error_label = NodePath("Root/MainVBox/BottomRow/ErrorLabel")
+
+[node name="TacticsScreen" type="Control" parent="." unique_id=182072754]
+anchors_preset = 0
+
+[node name="Root" type="MarginContainer" parent="." unique_id=1017961747]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 14
+
+[node name="MainVBox" type="VBoxContainer" parent="Root" unique_id=1865256874]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="Root/MainVBox" unique_id=52257831]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "TACTICS"
+horizontal_alignment = 1
+
+[node name="ColumnsHBox" type="HBoxContainer" parent="Root/MainVBox" unique_id=303693723]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="HomeColumn" type="VBoxContainer" parent="Root/MainVBox/ColumnsHBox" unique_id=355441281]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="HomeTeamLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=1310853218]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "HOME TEAM"
+horizontal_alignment = 1
+
+[node name="HomeNameRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=1466185988]
+layout_mode = 2
+
+[node name="HomeNameLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeNameRow" unique_id=312348655]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Name:"
+
+[node name="HomeNameEdit" type="LineEdit" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeNameRow" unique_id=85761319]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Home FC"
+placeholder_text = "Home FC"
+
+[node name="HomeKitRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=2075385735]
+layout_mode = 2
+
+[node name="HomeKitLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow" unique_id=1061634101]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Kit:"
+
+[node name="HomeKitPrimary" type="ColorPickerButton" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow" unique_id=112636600]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+color = Color(0.133, 0.4, 1, 1)
+
+[node name="HomeKitSlash" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow" unique_id=452386421]
+layout_mode = 2
+text = " / "
+
+[node name="HomeKitSecondary" type="ColorPickerButton" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeKitRow" unique_id=1543047428]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+color = Color(1, 1, 1, 1)
+
+[node name="HomeFormRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=1223393023]
+layout_mode = 2
+
+[node name="HomeFormLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeFormRow" unique_id=963357096]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Formation:"
+
+[node name="HomeFormDropdown" type="OptionButton" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeFormRow" unique_id=444570636]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HomePresetRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=810695607]
+layout_mode = 2
+
+[node name="HomePresetLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomePresetRow" unique_id=1615797998]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Style:"
+
+[node name="HomePresetDropdown" type="OptionButton" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomePresetRow" unique_id=463981728]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HomeTabContainer" type="TabContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn" unique_id=1665791072]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="Tactics" type="ScrollContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer" unique_id=1168118607]
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 0
+
+[node name="HomeSliderGrid" type="GridContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer/Tactics" unique_id=921895391]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 5
+theme_override_constants/v_separation = 3
+columns = 3
+
+[node name="Squad" type="ScrollContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer" unique_id=582733659]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 1
+
+[node name="HomeSquadGrid" type="GridContainer" parent="Root/MainVBox/ColumnsHBox/HomeColumn/HomeTabContainer/Squad" unique_id=70450768]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 3
+columns = 11
+
+[node name="Divider" type="VSeparator" parent="Root/MainVBox/ColumnsHBox" unique_id=867328732]
+layout_mode = 2
+
+[node name="AwayColumn" type="VBoxContainer" parent="Root/MainVBox/ColumnsHBox" unique_id=1787502771]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="AwayTeamLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=1506580912]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "AWAY TEAM"
+horizontal_alignment = 1
+
+[node name="AwayNameRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=595173641]
+layout_mode = 2
+
+[node name="AwayNameLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayNameRow" unique_id=1929268103]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Name:"
+
+[node name="AwayNameEdit" type="LineEdit" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayNameRow" unique_id=428153077]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Away FC"
+placeholder_text = "Away FC"
+
+[node name="AwayKitRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=196045180]
+layout_mode = 2
+
+[node name="AwayKitLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow" unique_id=503231387]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Kit:"
+
+[node name="AwayKitPrimary" type="ColorPickerButton" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow" unique_id=1411640788]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+color = Color(1, 0.2, 0.2, 1)
+
+[node name="AwayKitSlash" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow" unique_id=1115497499]
+layout_mode = 2
+text = " / "
+
+[node name="AwayKitSecondary" type="ColorPickerButton" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayKitRow" unique_id=495718067]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+color = Color(1, 1, 1, 1)
+
+[node name="AwayFormRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=1075514357]
+layout_mode = 2
+
+[node name="AwayFormLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayFormRow" unique_id=1415892519]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Formation:"
+
+[node name="AwayFormDropdown" type="OptionButton" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayFormRow" unique_id=1210346564]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AwayPresetRow" type="HBoxContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=1846228418]
+layout_mode = 2
+
+[node name="AwayPresetLabel" type="Label" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayPresetRow" unique_id=1790803457]
+custom_minimum_size = Vector2(76, 0)
+layout_mode = 2
+text = "Style:"
+
+[node name="AwayPresetDropdown" type="OptionButton" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayPresetRow" unique_id=502934812]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AwayTabContainer" type="TabContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn" unique_id=1371849179]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="Tactics" type="ScrollContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer" unique_id=1411501253]
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 0
+
+[node name="AwaySliderGrid" type="GridContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer/Tactics" unique_id=1628520580]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 5
+theme_override_constants/v_separation = 3
+columns = 3
+
+[node name="Squad" type="ScrollContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer" unique_id=1351431029]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 1
+
+[node name="AwaySquadGrid" type="GridContainer" parent="Root/MainVBox/ColumnsHBox/AwayColumn/AwayTabContainer/Squad" unique_id=1244628117]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 3
+columns = 11
+
+[node name="BottomRow" type="HBoxContainer" parent="Root/MainVBox" unique_id=1532021376]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ErrorLabel" type="Label" parent="Root/MainVBox/BottomRow" unique_id=1598860149]
+visible = false
+modulate = Color(1, 0.35, 0.35, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+
+[node name="KickOffButton" type="Button" parent="Root/MainVBox/BottomRow" unique_id=14376638]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "⚽  KICK OFF"

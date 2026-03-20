@@ -1,0 +1,105 @@
+[gd_scene format=3 uid="uid://cs04sxa8p7oih"]
+
+[ext_resource type="Script" uid="uid://dx2u1xcmop1r1" path="res://Scripts/Screens/PostMatch.gd" id="1_postmatch"]
+
+[node name="PostMatch" type="Control" unique_id=1152401692 node_paths=PackedStringArray("result_home_label", "result_away_label", "result_score_label", "tab_container", "result_scroll", "players_scroll", "hypothesis_scroll", "play_again_button", "main_menu_button")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_postmatch")
+result_home_label = NodePath("Root/MainVBox/ResultHeader/HeaderHBox/HomeNameLabel")
+result_away_label = NodePath("Root/MainVBox/ResultHeader/HeaderHBox/AwayNameLabel")
+result_score_label = NodePath("Root/MainVBox/ResultHeader/HeaderHBox/ScoreLabel")
+tab_container = NodePath("Root/MainVBox/TabContainer")
+result_scroll = NodePath("Root/MainVBox/TabContainer/Result")
+players_scroll = NodePath("Root/MainVBox/TabContainer/Players")
+hypothesis_scroll = NodePath("Root/MainVBox/TabContainer/Hypothesis")
+play_again_button = NodePath("Root/MainVBox/ButtonRow/PlayAgainButton")
+main_menu_button = NodePath("Root/MainVBox/ButtonRow/MainMenuButton")
+
+[node name="Root" type="MarginContainer" parent="." unique_id=760177610]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 12
+
+[node name="MainVBox" type="VBoxContainer" parent="Root" unique_id=1570389469]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="ResultHeader" type="PanelContainer" parent="Root/MainVBox" unique_id=1686678059]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Root/MainVBox/ResultHeader" unique_id=934407643]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="HomeNameLabel" type="Label" parent="Root/MainVBox/ResultHeader/HeaderHBox" unique_id=1867846175]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Home FC"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="Root/MainVBox/ResultHeader/HeaderHBox" unique_id=1629453018]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "0  –  0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="AwayNameLabel" type="Label" parent="Root/MainVBox/ResultHeader/HeaderHBox" unique_id=31194061]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Away FC"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TabContainer" type="TabContainer" parent="Root/MainVBox" unique_id=432483002]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="Result" type="ScrollContainer" parent="Root/MainVBox/TabContainer" unique_id=558162943]
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 0
+
+[node name="Players" type="ScrollContainer" parent="Root/MainVBox/TabContainer" unique_id=918945588]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 1
+
+[node name="Hypothesis" type="ScrollContainer" parent="Root/MainVBox/TabContainer" unique_id=1862543880]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+metadata/_tab_index = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="Root/MainVBox" unique_id=1809175577]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="PlayAgainButton" type="Button" parent="Root/MainVBox/ButtonRow" unique_id=731226060]
+custom_minimum_size = Vector2(160, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "▶  Play Again"
+
+[node name="MainMenuButton" type="Button" parent="Root/MainVBox/ButtonRow" unique_id=13808366]
+custom_minimum_size = Vector2(160, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "⌂  Main Menu"

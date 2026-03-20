@@ -1,0 +1,86 @@
+[gd_scene format=3 uid="uid://mainmenu"]
+
+[ext_resource type="Script" uid="uid://xqvm0xupioha" path="res://Scripts/Screens/MainMenu.gd" id="1_mainmenu"]
+
+[node name="MainMenu" type="Control" unique_id=1259420766 node_paths=PackedStringArray("start_button", "quit_button", "version_label", "data_error_label")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_mainmenu")
+start_button = NodePath("CentreVBox/StartButton")
+quit_button = NodePath("CentreVBox/QuitButton")
+version_label = NodePath("VersionLabel")
+data_error_label = NodePath("CentreVBox/DataErrorLabel")
+
+[node name="MainMenu" type="Control" parent="." unique_id=1799845494]
+anchors_preset = 0
+
+[node name="CentreVBox" type="VBoxContainer" parent="." unique_id=671342869]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="CentreVBox" unique_id=1948117496]
+layout_mode = 2
+theme_override_font_sizes/font_size = 52
+text = "FootballSim"
+horizontal_alignment = 1
+
+[node name="TaglineLabel" type="Label" parent="CentreVBox" unique_id=232804414]
+modulate = Color(0.65, 0.65, 0.65, 1)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Tactical Football Simulator"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="CentreVBox" unique_id=1501383626]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+
+[node name="DataErrorLabel" type="Label" parent="CentreVBox" unique_id=365032721]
+visible = false
+modulate = Color(1, 0.35, 0.2, 1)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="StartButton" type="Button" parent="CentreVBox" unique_id=1456835545]
+custom_minimum_size = Vector2(200, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "⚽  Start"
+
+[node name="QuitButton" type="Button" parent="CentreVBox" unique_id=546580843]
+modulate = Color(0.7, 0.7, 0.7, 1)
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 15
+text = "Quit"
+
+[node name="VersionLabel" type="Label" parent="." unique_id=1043622404]
+modulate = Color(0.4, 0.4, 0.4, 1)
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -120.0
+offset_top = -24.0
+offset_right = -8.0
+offset_bottom = -6.0
+theme_override_font_sizes/font_size = 11
+text = "v0.1.0-dev"
+horizontal_alignment = 2

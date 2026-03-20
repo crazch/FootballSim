@@ -74,200 +74,204 @@ using FootballSim.Engine.Models;
 
 namespace FootballSim.Engine.Tactics
 {
-    /// <summary>
-    /// Reads roles.json and populates RoleRegistry.
-    /// Pure JSON → data conversion. No engine state modification.
-    /// </summary>
-    public static class RoleLoader
-    {
-        // ── DEBUG ─────────────────────────────────────────────────────────────
+	/// <summary>
+	/// Reads roles.json and populates RoleRegistry.
+	/// Pure JSON → data conversion. No engine state modification.
+	/// </summary>
+	public static class RoleLoader
+	{
+		// ── DEBUG ─────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// When true, logs each loaded role with key tendency values.
-        /// Set false for release builds.
-        /// </summary>
-        public static bool DEBUG = false;
+		/// <summary>
+		/// When true, logs each loaded role with key tendency values.
+		/// Set false for release builds.
+		/// </summary>
+		public static bool DEBUG = false;
 
-        // ── Public API ────────────────────────────────────────────────────────
+		// ── Public API ────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Loads Data/Roles/roles.json and registers all role definitions.
-        /// Validates that every PlayerRole enum value has exactly one definition.
-        /// Throws descriptive exception on any error.
-        /// </summary>
-        /// <param name="dataFolderPath">Absolute path to Data/ folder.</param>
-        public static void LoadAll(string dataFolderPath)
-        {
-            string rolesPath = Path.Combine(dataFolderPath, "Roles", "roles.json");
+		/// <summary>
+		/// Loads Data/Roles/roles.json and registers all role definitions.
+		/// Validates that every PlayerRole enum value has exactly one definition.
+		/// Throws descriptive exception on any error.
+		/// </summary>
+		/// <param name="dataFolderPath">Absolute path to Data/ folder.</param>
+		public static void LoadAll(string dataFolderPath)
+		{
+			string rolesPath = Path.Combine(dataFolderPath, "Roles", "roles.json");
 
-            if (!File.Exists(rolesPath))
-                throw new Exception(
-                    $"[RoleLoader] roles.json not found at: '{rolesPath}'. " +
-                    $"Create Data/Roles/roles.json with one entry per PlayerRole enum value.");
+			if (!File.Exists(rolesPath))
+				throw new Exception(
+					$"[RoleLoader] roles.json not found at: '{rolesPath}'. " +
+					$"Create Data/Roles/roles.json with one entry per PlayerRole enum value.");
 
-            string json = File.ReadAllText(rolesPath);
+			string json = File.ReadAllText(rolesPath);
 
-            if (DEBUG)
-                Console.WriteLine($"[RoleLoader] Loading roles from '{rolesPath}'");
+			if (DEBUG)
+				Console.WriteLine($"[RoleLoader] Loading roles from '{rolesPath}'");
 
-            List<RoleDefinition> definitions = LoadFromJson(json, "roles.json");
+			List<RoleDefinition> definitions = LoadFromJson(json, "roles.json");
 
-            foreach (var def in definitions)
-            {
-                RoleRegistry.Register(def);
-                if (DEBUG)
-                    Console.WriteLine(
-                        $"[RoleLoader] Loaded role '{def.Role}' ({def.DisplayName}) " +
-                        $"| press={def.PressBias:F2} shoot={def.ShootBias:F2} " +
-                        $"pass={def.PassBias:F2} support={def.SupportBias:F2}");
-            }
+			foreach (var def in definitions)
+			{
+				RoleRegistry.Register(def);
+				if (DEBUG)
+					Console.WriteLine(
+						$"[RoleLoader] Loaded role '{def.Role}' ({def.DisplayName}) " +
+						$"| press={def.PressBias:F2} shoot={def.ShootBias:F2} " +
+						$"pass={def.PassBias:F2} support={def.SupportBias:F2}");
+			}
 
-            // ── Validate completeness — every enum value must have a definition ──
-            var missingRoles = new List<string>();
-            foreach (PlayerRole role in Enum.GetValues(typeof(PlayerRole)))
-            {
-                try { RoleRegistry.Get(role); }
-                catch { missingRoles.Add(role.ToString()); }
-            }
+			// ── Mark loaded first so RoleRegistry.Get() does not throw
+			//    "Registry not loaded" during the completeness check below.
+			//    Roles are already in the dictionary at this point — MarkLoaded()
+			//    only unblocks the _loaded guard in Get(). ──────────────────────
+			RoleRegistry.MarkLoaded();
 
-            if (missingRoles.Count > 0)
-                throw new Exception(
-                    $"[RoleLoader] Missing role definitions in roles.json for: " +
-                    $"{string.Join(", ", missingRoles)}. " +
-                    $"Every PlayerRole enum value must have exactly one entry.");
+			// ── Validate completeness — every enum value must have a definition ──
+			var missingRoles = new List<string>();
+			foreach (PlayerRole role in Enum.GetValues(typeof(PlayerRole)))
+			{
+				try { RoleRegistry.Get(role); }
+				catch { missingRoles.Add(role.ToString()); }
+			}
 
-            RoleRegistry.MarkLoaded();
+			if (missingRoles.Count > 0)
+				throw new Exception(
+					$"[RoleLoader] Missing role definitions in roles.json for: " +
+					$"{string.Join(", ", missingRoles)}. " +
+					$"Every PlayerRole enum value must have exactly one entry.");
 
-            if (DEBUG)
-                Console.WriteLine(
-                    $"[RoleLoader] All {definitions.Count} roles loaded and validated.");
-        }
+			if (DEBUG)
+				Console.WriteLine(
+					$"[RoleLoader] All {definitions.Count} roles loaded and validated.");
+		}
 
-        /// <summary>
-        /// Parses a JSON array string into a list of RoleDefinition.
-        /// Does NOT register — caller handles registration.
-        /// Validates all required fields and bounds.
-        /// </summary>
-        public static List<RoleDefinition> LoadFromJson(string json, string sourceLabel)
-        {
-            JsonDocument doc;
-            try
-            {
-                doc = JsonDocument.Parse(json);
-            }
-            catch (JsonException ex)
-            {
-                throw new Exception(
-                    $"[RoleLoader] Invalid JSON in '{sourceLabel}': {ex.Message}");
-            }
+		/// <summary>
+		/// Parses a JSON array string into a list of RoleDefinition.
+		/// Does NOT register — caller handles registration.
+		/// Validates all required fields and bounds.
+		/// </summary>
+		public static List<RoleDefinition> LoadFromJson(string json, string sourceLabel)
+		{
+			JsonDocument doc;
+			try
+			{
+				doc = JsonDocument.Parse(json);
+			}
+			catch (JsonException ex)
+			{
+				throw new Exception(
+					$"[RoleLoader] Invalid JSON in '{sourceLabel}': {ex.Message}");
+			}
 
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                throw new Exception(
-                    $"[RoleLoader] '{sourceLabel}': Root element must be a JSON array of role objects.");
+			if (doc.RootElement.ValueKind != JsonValueKind.Array)
+				throw new Exception(
+					$"[RoleLoader] '{sourceLabel}': Root element must be a JSON array of role objects.");
 
-            var result = new List<RoleDefinition>();
-            int index  = 0;
+			var result = new List<RoleDefinition>();
+			int index  = 0;
 
-            foreach (JsonElement el in doc.RootElement.EnumerateArray())
-            {
-                string src = $"{sourceLabel}[{index}]";
+			foreach (JsonElement el in doc.RootElement.EnumerateArray())
+			{
+				string src = $"{sourceLabel}[{index}]";
 
-                string roleStr     = ReadRequiredString(el, "role",        src);
-                string displayName = ReadRequiredString(el, "displayName", src);
-                string description = ReadOptionalString(el, "description", "");
+				string roleStr     = ReadRequiredString(el, "role",        src);
+				string displayName = ReadRequiredString(el, "displayName", src);
+				string description = ReadOptionalString(el, "description", "");
 
-                if (!Enum.TryParse<PlayerRole>(roleStr, out PlayerRole role))
-                    throw new Exception(
-                        $"[RoleLoader] '{src}': Unknown role '{roleStr}'. " +
-                        $"Must match a PlayerRole enum value exactly.");
+				if (!Enum.TryParse<PlayerRole>(roleStr, out PlayerRole role))
+					throw new Exception(
+						$"[RoleLoader] '{src}': Unknown role '{roleStr}'. " +
+						$"Must match a PlayerRole enum value exactly.");
 
-                var def = new RoleDefinition
-                {
-                    Role        = role,
-                    DisplayName = displayName,
-                    Description = description,
+				var def = new RoleDefinition
+				{
+					Role        = role,
+					DisplayName = displayName,
+					Description = description,
 
-                    // Movement tendencies
-                    InPossessionDriftX       = ReadRequiredFloat01(el, "inPossessionDriftX",       src),
-                    InPossessionDriftY       = ReadRequiredFloat01(el, "inPossessionDriftY",       src),
-                    DriftDirectionInward     = ReadRequiredBool(el,   "driftDirectionInward",      src),
-                    OutOfPossessionReturnY   = ReadRequiredFloat01(el, "outOfPossessionReturnY",   src),
-                    WidthBias                = ReadRequiredFloat01(el, "widthBias",                src),
-                    RunInBehindTendency      = ReadRequiredFloat01(el, "runInBehindTendency",      src),
-                    DropDeepTendency         = ReadRequiredFloat01(el, "dropDeepTendency",         src),
-                    OverlapRunTendency       = ReadRequiredFloat01(el, "overlapRunTendency",       src),
+					// Movement tendencies
+					InPossessionDriftX       = ReadRequiredFloat01(el, "inPossessionDriftX",       src),
+					InPossessionDriftY       = ReadRequiredFloat01(el, "inPossessionDriftY",       src),
+					DriftDirectionInward     = ReadRequiredBool(el,   "driftDirectionInward",      src),
+					OutOfPossessionReturnY   = ReadRequiredFloat01(el, "outOfPossessionReturnY",   src),
+					WidthBias                = ReadRequiredFloat01(el, "widthBias",                src),
+					RunInBehindTendency      = ReadRequiredFloat01(el, "runInBehindTendency",      src),
+					DropDeepTendency         = ReadRequiredFloat01(el, "dropDeepTendency",         src),
+					OverlapRunTendency       = ReadRequiredFloat01(el, "overlapRunTendency",       src),
 
-                    // Decision weights
-                    PassBias                 = ReadRequiredFloat01(el, "passBias",                 src),
-                    ShootBias                = ReadRequiredFloat01(el, "shootBias",                src),
-                    DribbleBias              = ReadRequiredFloat01(el, "dribbleBias",              src),
-                    CrossBias                = ReadRequiredFloat01(el, "crossBias",                src),
-                    LongPassBias             = ReadRequiredFloat01(el, "longPassBias",             src),
-                    PressBias                = ReadRequiredFloat01(el, "pressBias",                src),
-                    SupportBias              = ReadRequiredFloat01(el, "supportBias",              src),
-                    HoldPositionBias         = ReadRequiredFloat01(el, "holdPositionBias",         src),
+					// Decision weights
+					PassBias                 = ReadRequiredFloat01(el, "passBias",                 src),
+					ShootBias                = ReadRequiredFloat01(el, "shootBias",                src),
+					DribbleBias              = ReadRequiredFloat01(el, "dribbleBias",              src),
+					CrossBias                = ReadRequiredFloat01(el, "crossBias",                src),
+					LongPassBias             = ReadRequiredFloat01(el, "longPassBias",             src),
+					PressBias                = ReadRequiredFloat01(el, "pressBias",                src),
+					SupportBias              = ReadRequiredFloat01(el, "supportBias",              src),
+					HoldPositionBias         = ReadRequiredFloat01(el, "holdPositionBias",         src),
 
-                    // Physicality
-                    AerialDuelTendency       = ReadRequiredFloat01(el, "aerialDuelTendency",       src),
-                    TackleCommitTendency     = ReadRequiredFloat01(el, "tackleCommitTendency",     src),
+					// Physicality
+					AerialDuelTendency       = ReadRequiredFloat01(el, "aerialDuelTendency",       src),
+					TackleCommitTendency     = ReadRequiredFloat01(el, "tackleCommitTendency",     src),
 
-                    // Stamina
-                    StaminaExpenditureBias   = ReadRequiredFloat01(el, "staminaExpenditureBias",   src),
+					// Stamina
+					StaminaExpenditureBias   = ReadRequiredFloat01(el, "staminaExpenditureBias",   src),
 
-                    // Set pieces
-                    SetPieceAttackRole       = ReadRequiredFloat01(el, "setPieceAttackRole",       src),
-                    SetPieceDeliveryBias     = ReadRequiredFloat01(el, "setPieceDeliveryBias",     src),
-                };
+					// Set pieces
+					SetPieceAttackRole       = ReadRequiredFloat01(el, "setPieceAttackRole",       src),
+					SetPieceDeliveryBias     = ReadRequiredFloat01(el, "setPieceDeliveryBias",     src),
+				};
 
-                result.Add(def);
-                index++;
-            }
+				result.Add(def);
+				index++;
+			}
 
-            return result;
-        }
+			return result;
+		}
 
-        // ── Private helpers ───────────────────────────────────────────────────
+		// ── Private helpers ───────────────────────────────────────────────────
 
-        private static string ReadRequiredString(JsonElement el, string key, string source)
-        {
-            if (!el.TryGetProperty(key, out JsonElement val) ||
-                val.ValueKind != JsonValueKind.String)
-                throw new Exception(
-                    $"[RoleLoader] '{source}': Missing or non-string field '{key}'.");
-            return val.GetString() ?? string.Empty;
-        }
+		private static string ReadRequiredString(JsonElement el, string key, string source)
+		{
+			if (!el.TryGetProperty(key, out JsonElement val) ||
+				val.ValueKind != JsonValueKind.String)
+				throw new Exception(
+					$"[RoleLoader] '{source}': Missing or non-string field '{key}'.");
+			return val.GetString() ?? string.Empty;
+		}
 
-        private static string ReadOptionalString(JsonElement el, string key, string fallback)
-        {
-            if (el.TryGetProperty(key, out JsonElement val) &&
-                val.ValueKind == JsonValueKind.String)
-                return val.GetString() ?? fallback;
-            return fallback;
-        }
+		private static string ReadOptionalString(JsonElement el, string key, string fallback)
+		{
+			if (el.TryGetProperty(key, out JsonElement val) &&
+				val.ValueKind == JsonValueKind.String)
+				return val.GetString() ?? fallback;
+			return fallback;
+		}
 
-        private static bool ReadRequiredBool(JsonElement el, string key, string source)
-        {
-            if (!el.TryGetProperty(key, out JsonElement val))
-                throw new Exception(
-                    $"[RoleLoader] '{source}': Missing boolean field '{key}'.");
-            if (val.ValueKind == JsonValueKind.True)  return true;
-            if (val.ValueKind == JsonValueKind.False) return false;
-            throw new Exception(
-                $"[RoleLoader] '{source}': Field '{key}' must be a JSON boolean (true/false).");
-        }
+		private static bool ReadRequiredBool(JsonElement el, string key, string source)
+		{
+			if (!el.TryGetProperty(key, out JsonElement val))
+				throw new Exception(
+					$"[RoleLoader] '{source}': Missing boolean field '{key}'.");
+			if (val.ValueKind == JsonValueKind.True)  return true;
+			if (val.ValueKind == JsonValueKind.False) return false;
+			throw new Exception(
+				$"[RoleLoader] '{source}': Field '{key}' must be a JSON boolean (true/false).");
+		}
 
-        private static float ReadRequiredFloat01(JsonElement el, string key, string source)
-        {
-            if (!el.TryGetProperty(key, out JsonElement val) ||
-                val.ValueKind != JsonValueKind.Number)
-                throw new Exception(
-                    $"[RoleLoader] '{source}': Missing or non-numeric field '{key}'.");
-            float f = val.GetSingle();
-            if (f < 0f || f > 1f)
-                throw new Exception(
-                    $"[RoleLoader] '{source}': Field '{key}' value {f} is out of [0.0, 1.0]. " +
-                    $"All role tendency values must be normalised 0–1.");
-            return f;
-        }
-    }
+		private static float ReadRequiredFloat01(JsonElement el, string key, string source)
+		{
+			if (!el.TryGetProperty(key, out JsonElement val) ||
+				val.ValueKind != JsonValueKind.Number)
+				throw new Exception(
+					$"[RoleLoader] '{source}': Missing or non-numeric field '{key}'.");
+			float f = val.GetSingle();
+			if (f < 0f || f > 1f)
+				throw new Exception(
+					$"[RoleLoader] '{source}': Field '{key}' value {f} is out of [0.0, 1.0]. " +
+					$"All role tendency values must be normalised 0–1.");
+			return f;
+		}
+	}
 }

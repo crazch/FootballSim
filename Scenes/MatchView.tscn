@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://dsy6grmfrxbx"]
+[gd_scene format=3 uid="uid://matchview"]
 
-[ext_resource type="Script" uid="uid://b0wr4smbhhgj4" path="res://Scenes/MatchView.gd" id="1_jpvim"]
+[ext_resource type="Script" uid="uid://b0wr4smbhhgj4" path="res://Scripts/Screens/MatchView.gd" id="1_jpvim"]
 [ext_resource type="Script" uid="uid://d0x7xljxrxwbw" path="res://Scripts/Visualization/BallDot.gd" id="1_tofsd"]
 [ext_resource type="Script" uid="uid://1kyigt1ntw38" path="res://Scripts/Visualization/ReplayPlayer.gd" id="2_dtowy"]
 [ext_resource type="Script" uid="uid://bua1usmjanfg5" path="res://Scripts/Visualization/PitchRenderer.gd" id="2_ys65p"]
@@ -12,24 +12,18 @@
 [ext_resource type="Script" uid="uid://ojo8iw33cugr" path="res://Scripts/UI/EventLogUI.gd" id="10_ujw1w"]
 [ext_resource type="Script" uid="uid://hu12wemx8ov6" path="res://Scripts/UI/SpeedControls.gd" id="11_ujw1w"]
 
-[node name="MatchView" type="Node2D" unique_id=1919433713]
+[node name="MatchView" type="Node2D" unique_id=1919433713 node_paths=PackedStringArray("replay_player", "overlay_layer", "hud", "event_log_ui", "speed_controls", "loading_overlay", "loading_label")]
 script = ExtResource("1_jpvim")
+replay_player = NodePath("ReplayPlayer")
+overlay_layer = NodePath("OverlayLayer")
+hud = NodePath("HUD")
+event_log_ui = NodePath("EventLogUI")
+speed_controls = NodePath("SpeedControls")
+loading_overlay = NodePath("LoadingOverlay")
+loading_label = NodePath("LoadingOverlay/LoadingPanel/LoadingLabel")
 
 [node name="PitchRenderer" type="Node2D" parent="." unique_id=1659392524]
 script = ExtResource("2_ys65p")
-
-[node name="PlayersLayer" type="Node2D" parent="." unique_id=465463946]
-z_index = 2
-
-[node name="BallDot" type="Node2D" parent="." unique_id=372723528]
-z_index = 3
-script = ExtResource("1_tofsd")
-
-[node name="ReplayPlayer" type="Node" parent="." unique_id=146828196 node_paths=PackedStringArray("players_layer", "ball_dot")]
-script = ExtResource("2_dtowy")
-home_kit_secondary = 16724787
-players_layer = NodePath("../PlayersLayer")
-ball_dot = NodePath("../BallDot")
 
 [node name="OverlayLayer" type="Node2D" parent="." unique_id=1025862535 node_paths=PackedStringArray("defensive_line_node", "pressing_node", "ghosts_node")]
 z_index = 1
@@ -39,6 +33,7 @@ pressing_node = NodePath("PressingLinesOverlay")
 ghosts_node = NodePath("FormationGhostsOverlay")
 
 [node name="FormationGhostsOverlay" type="Node2D" parent="OverlayLayer" unique_id=1256647204]
+visible = false
 z_index = 1
 script = ExtResource("6_ujw1w")
 
@@ -49,6 +44,19 @@ script = ExtResource("7_we41r")
 [node name="PressingLinesOverlay" type="Node2D" parent="OverlayLayer" unique_id=208004856]
 z_index = 5
 script = ExtResource("8_c7joy")
+
+[node name="PlayersLayer" type="Node2D" parent="." unique_id=465463946]
+z_index = 2
+
+[node name="BallDot" type="Node2D" parent="." unique_id=372723528]
+z_index = 3
+script = ExtResource("1_tofsd")
+
+[node name="ReplayPlayer" type="Node" parent="." unique_id=146828196 node_paths=PackedStringArray("players_layer", "ball_dot")]
+script = ExtResource("2_dtowy")
+home_kit_primary = 0
+players_layer = NodePath("../PlayersLayer")
+ball_dot = NodePath("../BallDot")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1052718972 node_paths=PackedStringArray("home_score_label", "away_score_label", "clock_label", "phase_label", "speed_label", "home_xg_label", "away_xg_label", "home_poss_label", "away_poss_label", "xg_bar", "poss_bar", "stamina_warning", "stamina_label")]
 layer = 10
@@ -64,29 +72,34 @@ home_poss_label = NodePath("StatsBar/StatsHBox/HomePossLabel")
 away_poss_label = NodePath("StatsBar/StatsHBox/AwayPossLabel")
 xg_bar = NodePath("StatsBar/StatsHBox/XGBar")
 poss_bar = NodePath("StatsBar/StatsHBox/PossBar")
-stamina_warning = NodePath("StatsBar/StatsHBox/StaminaWarning")
-stamina_label = NodePath("StatsBar/StatsHBox/StaminaWarning/StaminaLabel")
+stamina_warning = NodePath("StaminaWarning")
+stamina_label = NodePath("StaminaWarning/StaminaLabel")
 
 [node name="TopBar" type="PanelContainer" parent="HUD" unique_id=165831459]
-anchors_preset = -1
+anchors_preset = 10
 anchor_right = 1.0
-offset_right = 40.0
-offset_bottom = 40.0
+offset_bottom = 48.0
+grow_horizontal = 2
 
-[node name="TopBarHBox" type="BoxContainer" parent="HUD/TopBar" unique_id=1168038961]
+[node name="TopBarHBox" type="HBoxContainer" parent="HUD/TopBar" unique_id=1168038961]
 layout_mode = 2
 
 [node name="HomeScoreLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=781204778]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
+text = "0"
+horizontal_alignment = 1
 
 [node name="ScoreSep" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=2110355944]
 layout_mode = 2
-text = "-"
+theme_override_font_sizes/font_size = 24
+text = " – "
 
 [node name="AwayScoreLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=70864399]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
+text = "0"
+horizontal_alignment = 1
 
 [node name="HSpacer" type="Control" parent="HUD/TopBar/TopBarHBox" unique_id=1723322929]
 layout_mode = 2
@@ -94,7 +107,9 @@ size_flags_horizontal = 3
 
 [node name="ClockLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=1753832512]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 22
+text = "0:00"
+horizontal_alignment = 1
 
 [node name="HSpacer2" type="Control" parent="HUD/TopBar/TopBarHBox" unique_id=1501757050]
 layout_mode = 2
@@ -102,45 +117,72 @@ size_flags_horizontal = 3
 
 [node name="PhaseLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=71564352]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 
 [node name="SpeedLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=1160432447]
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
+text = "1×"
 
 [node name="StatsBar" type="PanelContainer" parent="HUD" unique_id=1619843430]
-offset_right = 40.0
-offset_bottom = 40.0
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 48.0
+offset_bottom = 76.0
+grow_horizontal = 2
 
 [node name="StatsHBox" type="HBoxContainer" parent="HUD/StatsBar" unique_id=33957733]
 layout_mode = 2
 
 [node name="HomeXGLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=451316436]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "xG 0.00"
 
 [node name="XGBar" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=506828711]
+custom_minimum_size = Vector2(100, 12)
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="AwayXGLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1676700680]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "xG 0.00"
 
-[node name="Spacer" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=377909731]
+[node name="StatsSpacer" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=377909731]
+custom_minimum_size = Vector2(16, 0)
 layout_mode = 2
 
 [node name="HomePossLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1278688305]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "50%"
 
 [node name="PossBar" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=406855058]
+custom_minimum_size = Vector2(100, 12)
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="AwayPossLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1414477986]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "50%"
 
-[node name="StaminaWarning" type="PanelContainer" parent="HUD/StatsBar/StatsHBox" unique_id=637032246]
-layout_mode = 2
+[node name="StaminaWarning" type="PanelContainer" parent="HUD" unique_id=637032246]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 76.0
+offset_right = 200.0
+offset_bottom = 96.0
+grow_horizontal = 0
 
-[node name="StaminaLabel" type="Label" parent="HUD/StatsBar/StatsHBox/StaminaWarning" unique_id=1276943631]
+[node name="StaminaLabel" type="Label" parent="HUD/StaminaWarning" unique_id=1276943631]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
 
 [node name="EventLogUI" type="CanvasLayer" parent="." unique_id=1658791492 node_paths=PackedStringArray("log_vbox")]
 layer = 11
@@ -148,24 +190,33 @@ script = ExtResource("10_ujw1w")
 log_vbox = NodePath("Panel/VBox/Scroll/LogVBox")
 
 [node name="Panel" type="PanelContainer" parent="EventLogUI" unique_id=1309395585]
-anchors_preset = -1
+anchors_preset = 11
+anchor_left = 1.0
 anchor_right = 1.0
-anchor_bottom = 0.95
-offset_right = 40.0
-offset_bottom = 40.0
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = 76.0
+offset_bottom = -70.0
+grow_horizontal = 0
+grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="EventLogUI/Panel" unique_id=971981989]
 layout_mode = 2
+size_flags_vertical = 3
 
 [node name="TitleLabel" type="Label" parent="EventLogUI/Panel/VBox" unique_id=479755347]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "MATCH EVENTS"
+horizontal_alignment = 1
 
 [node name="Scroll" type="ScrollContainer" parent="EventLogUI/Panel/VBox" unique_id=1356738757]
 layout_mode = 2
+size_flags_vertical = 3
 
 [node name="LogVBox" type="VBoxContainer" parent="EventLogUI/Panel/VBox/Scroll" unique_id=359645290]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="SpeedControls" type="CanvasLayer" parent="." unique_id=1132983405 node_paths=PackedStringArray("replay_player", "scrub_bar", "pause_button", "speed_buttons", "prev_highlight", "next_highlight", "instant_button", "hud")]
 layer = 12
@@ -180,46 +231,59 @@ instant_button = NodePath("BottomBar/VBox/ButtonRow/InstantButton")
 hud = NodePath("../HUD")
 
 [node name="BottomBar" type="PanelContainer" parent="SpeedControls" unique_id=847179931]
-anchors_preset = -1
+anchors_preset = 12
+anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 40.0
-offset_bottom = 40.0
+offset_top = -70.0
+grow_horizontal = 2
+grow_vertical = 0
 
 [node name="VBox" type="VBoxContainer" parent="SpeedControls/BottomBar" unique_id=205644099]
 layout_mode = 2
 
 [node name="ScrubBar" type="HSlider" parent="SpeedControls/BottomBar/VBox" unique_id=1979113292]
+custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
+size_flags_horizontal = 3
+max_value = 54000.0
 
 [node name="ButtonRow" type="HBoxContainer" parent="SpeedControls/BottomBar/VBox" unique_id=417399735]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="PauseButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=163333020]
+custom_minimum_size = Vector2(40, 32)
 layout_mode = 2
 text = "⏸"
 
 [node name="HalfButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=534200498]
+custom_minimum_size = Vector2(38, 32)
 layout_mode = 2
 text = "½×"
 
 [node name="OneButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=502618236]
+custom_minimum_size = Vector2(38, 32)
 layout_mode = 2
 text = "1×"
 
 [node name="TwoButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=1511915047]
+custom_minimum_size = Vector2(38, 32)
 layout_mode = 2
 text = "2×"
 
 [node name="FourButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=217387972]
+custom_minimum_size = Vector2(38, 32)
 layout_mode = 2
 text = "4×"
 
 [node name="EightButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=1496779992]
+custom_minimum_size = Vector2(38, 32)
 layout_mode = 2
 text = "8×"
 
 [node name="SixteenButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=955637515]
+custom_minimum_size = Vector2(42, 32)
 layout_mode = 2
 text = "16×"
 
@@ -228,13 +292,41 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="PrevHighlight" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=1626071371]
+custom_minimum_size = Vector2(72, 32)
 layout_mode = 2
 text = "◀ Event"
 
 [node name="NextHighlight" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=1537530081]
+custom_minimum_size = Vector2(72, 32)
 layout_mode = 2
 text = "Event ▶"
 
 [node name="InstantButton" type="Button" parent="SpeedControls/BottomBar/VBox/ButtonRow" unique_id=188712486]
+custom_minimum_size = Vector2(62, 32)
 layout_mode = 2
 text = "End ⏭"
+
+[node name="LoadingOverlay" type="CanvasLayer" parent="." unique_id=2017317854]
+layer = 20
+visible = false
+
+[node name="LoadingPanel" type="Panel" parent="LoadingOverlay" unique_id=1265036435]
+modulate = Color(0.04, 0.04, 0.06, 0.88)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="LoadingLabel" type="Label" parent="LoadingOverlay/LoadingPanel" unique_id=400806891]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -20.0
+offset_right = 160.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 20
+text = "Simulating match…"
+horizontal_alignment = 1
+vertical_alignment = 1
