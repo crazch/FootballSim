@@ -11,8 +11,13 @@ config_version=5
 [application]
 
 config/name="FootballSim"
-config/features=PackedStringArray("4.6", "Forward Plus")
+run/main_scene="uid://dsy6grmfrxbx"
+config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Bridge="*uid://poy8oup5b2hk"
 
 [dotnet]
 

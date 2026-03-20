@@ -3,6 +3,7 @@
 *.translation
 *.import
 export_presets.cfg
+/android/
 
 # --- .NET / C# ---
 # Ignore all bin and obj folders recursively
