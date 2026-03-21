@@ -97,6 +97,24 @@ namespace FootballSim.Bridge
 		/// </summary>
 		[Export] public bool DEBUG = false;
 
+		// SEARCHTAG: DEBUG FLAGS CONTROL
+		/// <summary>
+		/// Enables debug logging for selected engine systems.
+		/// Optional: filter output to a specific player ID (-1 = all players)
+		/// </summary>
+		public void SetDebugFlags(bool enabled, int filterPlayerId = -1)
+		{
+			CollisionSystem.DEBUG = enabled;
+			CollisionSystem.DEBUG_PLAYER_ID = filterPlayerId;
+			BallSystem.DEBUG = enabled;
+			PlayerAI.DEBUG = enabled;
+			PlayerAI.DEBUG_PLAYER_ID = filterPlayerId;
+			EventSystem.DEBUG = enabled;
+
+			if (DEBUG)
+				GD.Print($"[MatchEngineBridge] Debug flags set: enabled={enabled}, filterPlayerId={filterPlayerId}");
+		}
+
 		// ── Private state ─────────────────────────────────────────────────────
 
 		/// <summary>
@@ -166,7 +184,7 @@ namespace FootballSim.Bridge
 			}
 			catch (Exception ex)
 			{
-				_lastError  = $"LoadData failed: {ex.Message}";
+				_lastError = $"LoadData failed: {ex.Message}";
 				_dataLoaded = false;
 				GD.PrintErr($"[MatchEngineBridge] {_lastError}");
 			}
@@ -234,7 +252,7 @@ namespace FootballSim.Bridge
 								  int seed = 0)
 		{
 			_lastError = string.Empty;
-			_replay    = null;
+			_replay = null;
 
 			if (!_dataLoaded)
 			{
@@ -253,11 +271,7 @@ namespace FootballSim.Bridge
 				TeamData awayTeam = ParseTeamData(awayTeamDict, teamId: 1);
 
 				// Enable engine debug output if bridge debug is on
-				MatchEngine.DEBUG     = DEBUG;
-				BallSystem.DEBUG      = false; // too verbose — toggle manually
-				MovementSystem.DEBUG  = false;
-				CollisionSystem.DEBUG = false;
-				EventSystem.DEBUG     = false;
+				MatchEngine.DEBUG = DEBUG;
 
 				_replay = MatchEngine.Simulate(homeTeam, awayTeam, seed);
 
@@ -327,18 +341,18 @@ namespace FootballSim.Bridge
 			var dict = new Godot.Collections.Dictionary();
 
 			// Timing
-			dict["tick"]         = frame.Tick;
+			dict["tick"] = frame.Tick;
 			dict["match_second"] = frame.MatchSecond;
 			dict["match_minute"] = frame.MatchMinute;
-			dict["home_score"]   = frame.HomeScore;
-			dict["away_score"]   = frame.AwayScore;
-			dict["phase"]        = (int)frame.Phase;
+			dict["home_score"] = frame.HomeScore;
+			dict["away_score"] = frame.AwayScore;
+			dict["phase"] = (int)frame.Phase;
 
 			// Ball — Vec2 → Vector2
-			dict["ball_pos"]     = ToVector2(frame.Ball.Position);
-			dict["ball_phase"]   = (int)frame.Ball.Phase;
-			dict["ball_height"]  = frame.Ball.Height;
-			dict["ball_owner"]   = frame.Ball.OwnerId;
+			dict["ball_pos"] = ToVector2(frame.Ball.Position);
+			dict["ball_phase"] = (int)frame.Ball.Phase;
+			dict["ball_height"] = frame.Ball.Height;
+			dict["ball_owner"] = frame.Ball.OwnerId;
 			dict["ball_is_shot"] = frame.Ball.IsShot;
 
 			// Players — 22 player snapshots
@@ -347,11 +361,11 @@ namespace FootballSim.Bridge
 			{
 				PlayerSnap snap = frame.Players[i];
 				var p = new Godot.Collections.Dictionary();
-				p["position"]    = ToVector2(snap.Position);
-				p["stamina"]     = snap.Stamina;
-				p["has_ball"]    = snap.HasBall;
-				p["action"]      = (int)snap.Action;
-				p["is_active"]   = snap.IsActive;
+				p["position"] = ToVector2(snap.Position);
+				p["stamina"] = snap.Stamina;
+				p["has_ball"] = snap.HasBall;
+				p["action"] = (int)snap.Action;
+				p["is_active"] = snap.IsActive;
 				p["is_sprinting"] = snap.IsSprinting;
 				playerArray.Add(p);
 			}
@@ -390,17 +404,17 @@ namespace FootballSim.Bridge
 			foreach (MatchEvent ev in events)
 			{
 				var d = new Godot.Collections.Dictionary();
-				d["tick"]         = ev.Tick;
+				d["tick"] = ev.Tick;
 				d["match_minute"] = ev.MatchMinute;
-				d["type"]         = (int)ev.Type;
-				d["type_name"]    = ev.Type.ToString();
-				d["primary"]      = ev.PrimaryPlayerId;
-				d["secondary"]    = ev.SecondaryPlayerId;
-				d["team_id"]      = ev.TeamId;
-				d["position"]     = ToVector2(ev.Position);
-				d["extra_float"]  = ev.ExtraFloat;
-				d["extra_bool"]   = ev.ExtraBool;
-				d["description"]  = ev.Description ?? string.Empty;
+				d["type"] = (int)ev.Type;
+				d["type_name"] = ev.Type.ToString();
+				d["primary"] = ev.PrimaryPlayerId;
+				d["secondary"] = ev.SecondaryPlayerId;
+				d["team_id"] = ev.TeamId;
+				d["position"] = ToVector2(ev.Position);
+				d["extra_float"] = ev.ExtraFloat;
+				d["extra_bool"] = ev.ExtraBool;
+				d["description"] = ev.Description ?? string.Empty;
 				result.Add(d);
 			}
 
@@ -422,6 +436,50 @@ namespace FootballSim.Bridge
 
 			return result;
 		}
+
+		// =====================================================================
+		// DEBUG HELPERS
+		// =====================================================================
+
+		/// <summary>
+		/// Dumps replay frames for a specific tick range to Godot Output.
+		/// Use after simulation completes to inspect specific moments.
+		/// </summary>
+		public void DumpTickRange(int fromTick, int toTick, int filterPlayerId = -1)
+{
+	if (_replay == null) 
+	{ 
+		GD.Print("[Bridge] No replay loaded."); 
+		return; 
+	}
+
+	for (int t = fromTick; t <= toTick && t < _replay.Frames.Count; t++)
+	{
+		ReplayFrame f = _replay.Frames[t];
+		GD.Print($"[TICK {t}] phase={f.Phase} score={f.HomeScore}-{f.AwayScore} " +
+				 $"ball_pos={f.Ball.Position} ball_phase={f.Ball.Phase} " +
+				 $"ball_owner={f.Ball.OwnerId} ball_height={f.Ball.Height:F2} " +
+				 $"is_shot={f.Ball.IsShot}");
+
+		// Player positions (filtered)
+		for (int i = 0; i < 22; i++)
+		{
+			if (filterPlayerId >= 0 && i != filterPlayerId) continue; // <-- only this player
+
+			var p = f.Players[i];
+			if (!p.IsActive) continue;
+
+			string side = i <= 10 ? "H" : "A";
+			GD.Print($"  P{i}[{side}] pos={p.Position} action={p.Action} " +
+					 $"hasBall={p.HasBall} stamina={p.Stamina:F2}");
+		}
+
+		// Print events (optional, still shows all)
+		if (f.Events != null)
+			foreach (var ev in f.Events)
+				GD.Print($"  >> EVENT {ev.Type}: {ev.Description}");
+	}
+}
 
 		// =====================================================================
 		// STATS ACCESS (called by PostMatch.gd)
@@ -499,65 +557,65 @@ namespace FootballSim.Bridge
 
 			PlayerMatchStats s = _replay.PlayerStats[playerId];
 
-			dict["player_id"]            = s.PlayerId;
-			dict["team_id"]              = s.TeamId;
-			dict["shirt_number"]         = s.ShirtNumber;
-			dict["name"]                 = s.Name ?? string.Empty;
+			dict["player_id"] = s.PlayerId;
+			dict["team_id"] = s.TeamId;
+			dict["shirt_number"] = s.ShirtNumber;
+			dict["name"] = s.Name ?? string.Empty;
 
-			dict["goals"]                = s.Goals;
-			dict["own_goals"]            = s.OwnGoals;
-			dict["assists"]              = s.Assists;
-			dict["xg"]                   = s.XG;
-			dict["xa"]                   = s.XA;
+			dict["goals"] = s.Goals;
+			dict["own_goals"] = s.OwnGoals;
+			dict["assists"] = s.Assists;
+			dict["xg"] = s.XG;
+			dict["xa"] = s.XA;
 
-			dict["shots_attempted"]      = s.ShotsAttempted;
-			dict["shots_on_target"]      = s.ShotsOnTarget;
-			dict["shots_off_target"]     = s.ShotsOffTarget;
-			dict["shots_blocked"]        = s.ShotsBlocked;
+			dict["shots_attempted"] = s.ShotsAttempted;
+			dict["shots_on_target"] = s.ShotsOnTarget;
+			dict["shots_off_target"] = s.ShotsOffTarget;
+			dict["shots_blocked"] = s.ShotsBlocked;
 
-			dict["passes_attempted"]     = s.PassesAttempted;
-			dict["passes_completed"]     = s.PassesCompleted;
-			dict["pass_accuracy"]        = s.PassesAttempted > 0
+			dict["passes_attempted"] = s.PassesAttempted;
+			dict["passes_completed"] = s.PassesCompleted;
+			dict["pass_accuracy"] = s.PassesAttempted > 0
 										   ? (float)s.PassesCompleted / s.PassesAttempted
 										   : 0f;
-			dict["progressive_passes"]   = s.ProgressivePasses;
-			dict["key_passes"]           = s.KeyPasses;
+			dict["progressive_passes"] = s.ProgressivePasses;
+			dict["key_passes"] = s.KeyPasses;
 			dict["long_balls_attempted"] = s.LongBallsAttempted;
 			dict["long_balls_completed"] = s.LongBallsCompleted;
 
-			dict["dribbles_attempted"]   = s.DribblesAttempted;
-			dict["dribbles_successful"]  = s.DribblesSuccessful;
-			dict["times_dispossessed"]   = s.TimesDispossessed;
+			dict["dribbles_attempted"] = s.DribblesAttempted;
+			dict["dribbles_successful"] = s.DribblesSuccessful;
+			dict["times_dispossessed"] = s.TimesDispossessed;
 
-			dict["crosses_attempted"]    = s.CrossesAttempted;
-			dict["crosses_successful"]   = s.CrossesSuccessful;
+			dict["crosses_attempted"] = s.CrossesAttempted;
+			dict["crosses_successful"] = s.CrossesSuccessful;
 
-			dict["aerial_duels_total"]   = s.AerialDuelsTotal;
-			dict["aerial_duels_won"]     = s.AerialDuelsWon;
+			dict["aerial_duels_total"] = s.AerialDuelsTotal;
+			dict["aerial_duels_won"] = s.AerialDuelsWon;
 
-			dict["tackles_attempted"]    = s.TacklesAttempted;
-			dict["tackles_won"]          = s.TacklesWon;
-			dict["interceptions"]        = s.Interceptions;
-			dict["pressures_attempted"]  = s.PressuresAttempted;
+			dict["tackles_attempted"] = s.TacklesAttempted;
+			dict["tackles_won"] = s.TacklesWon;
+			dict["interceptions"] = s.Interceptions;
+			dict["pressures_attempted"] = s.PressuresAttempted;
 			dict["pressures_successful"] = s.PressuresSuccessful;
-			dict["blocks"]               = s.Blocks;
-			dict["clearances"]           = s.Clearances;
+			dict["blocks"] = s.Blocks;
+			dict["clearances"] = s.Clearances;
 
-			dict["fouls_committed"]      = s.FoulsCommitted;
-			dict["fouls_drawn"]          = s.FoulsDrawn;
-			dict["yellow_cards"]         = s.YellowCards;
-			dict["red_cards"]            = s.RedCards;
-			dict["offsides"]             = s.Offsides;
+			dict["fouls_committed"] = s.FoulsCommitted;
+			dict["fouls_drawn"] = s.FoulsDrawn;
+			dict["yellow_cards"] = s.YellowCards;
+			dict["red_cards"] = s.RedCards;
+			dict["offsides"] = s.Offsides;
 
-			dict["shots_faced"]          = s.ShotsFaced;
-			dict["saves"]                = s.Saves;
-			dict["xg_saved"]             = s.XGSaved;
-			dict["goals_conceded"]       = s.GoalsConceded;
+			dict["shots_faced"] = s.ShotsFaced;
+			dict["saves"] = s.Saves;
+			dict["xg_saved"] = s.XGSaved;
+			dict["goals_conceded"] = s.GoalsConceded;
 
-			dict["distance_covered"]     = s.DistanceCovered;
-			dict["sprint_distance"]      = s.SprintDistance;
-			dict["sprint_count"]         = s.SprintCount;
-			dict["final_stamina"]        = s.FinalStamina;
+			dict["distance_covered"] = s.DistanceCovered;
+			dict["sprint_distance"] = s.SprintDistance;
+			dict["sprint_count"] = s.SprintCount;
+			dict["final_stamina"] = s.FinalStamina;
 
 			return dict;
 		}
@@ -611,40 +669,40 @@ namespace FootballSim.Bridge
 			TeamMatchStats s = teamId == 0 ? _replay.HomeStats : _replay.AwayStats;
 			if (s == null) return dict;
 
-			dict["team_id"]               = s.TeamId;
-			dict["name"]                  = s.Name ?? string.Empty;
-			dict["goals_scored"]          = s.GoalsScored;
-			dict["goals_conceded"]        = s.GoalsConceded;
-			dict["possession_percent"]    = s.PossessionPercent;
-			dict["shots_total"]           = s.ShotsTotal;
-			dict["shots_on_target"]       = s.ShotsOnTarget;
-			dict["shots_off_target"]      = s.ShotsOffTarget;
-			dict["shots_blocked"]         = s.ShotsBlocked;
-			dict["xg"]                    = s.XG;
-			dict["xga"]                   = s.XGA;
-			dict["passes_attempted"]      = s.PassesAttempted;
-			dict["passes_completed"]      = s.PassesCompleted;
-			dict["pass_accuracy"]         = s.PassAccuracy;
-			dict["progressive_passes"]    = s.ProgressivePasses;
-			dict["key_passes"]            = s.KeyPasses;
-			dict["long_balls_attempted"]  = s.LongBallsAttempted;
-			dict["long_balls_completed"]  = s.LongBallsCompleted;
-			dict["ppda"]                  = s.PPDA;
-			dict["pressures_attempted"]   = s.PressuresAttempted;
-			dict["pressures_successful"]  = s.PressuresSuccessful;
-			dict["tackles_attempted"]     = s.TacklesAttempted;
-			dict["tackles_won"]           = s.TacklesWon;
-			dict["interceptions"]         = s.Interceptions;
-			dict["clearances"]            = s.Clearances;
-			dict["blocks"]                = s.Blocks;
-			dict["corners_won"]           = s.CornersWon;
-			dict["free_kicks_won"]        = s.FreeKicksWon;
-			dict["penalties_awarded"]     = s.PenaltiesAwarded;
-			dict["fouls_committed"]       = s.FoulsCommitted;
-			dict["fouls_drawn"]           = s.FoulsDrawn;
-			dict["yellow_cards"]          = s.YellowCards;
-			dict["red_cards"]             = s.RedCards;
-			dict["total_distance"]        = s.TotalDistanceCovered;
+			dict["team_id"] = s.TeamId;
+			dict["name"] = s.Name ?? string.Empty;
+			dict["goals_scored"] = s.GoalsScored;
+			dict["goals_conceded"] = s.GoalsConceded;
+			dict["possession_percent"] = s.PossessionPercent;
+			dict["shots_total"] = s.ShotsTotal;
+			dict["shots_on_target"] = s.ShotsOnTarget;
+			dict["shots_off_target"] = s.ShotsOffTarget;
+			dict["shots_blocked"] = s.ShotsBlocked;
+			dict["xg"] = s.XG;
+			dict["xga"] = s.XGA;
+			dict["passes_attempted"] = s.PassesAttempted;
+			dict["passes_completed"] = s.PassesCompleted;
+			dict["pass_accuracy"] = s.PassAccuracy;
+			dict["progressive_passes"] = s.ProgressivePasses;
+			dict["key_passes"] = s.KeyPasses;
+			dict["long_balls_attempted"] = s.LongBallsAttempted;
+			dict["long_balls_completed"] = s.LongBallsCompleted;
+			dict["ppda"] = s.PPDA;
+			dict["pressures_attempted"] = s.PressuresAttempted;
+			dict["pressures_successful"] = s.PressuresSuccessful;
+			dict["tackles_attempted"] = s.TacklesAttempted;
+			dict["tackles_won"] = s.TacklesWon;
+			dict["interceptions"] = s.Interceptions;
+			dict["clearances"] = s.Clearances;
+			dict["blocks"] = s.Blocks;
+			dict["corners_won"] = s.CornersWon;
+			dict["free_kicks_won"] = s.FreeKicksWon;
+			dict["penalties_awarded"] = s.PenaltiesAwarded;
+			dict["fouls_committed"] = s.FoulsCommitted;
+			dict["fouls_drawn"] = s.FoulsDrawn;
+			dict["yellow_cards"] = s.YellowCards;
+			dict["red_cards"] = s.RedCards;
+			dict["total_distance"] = s.TotalDistanceCovered;
 			dict["total_sprint_distance"] = s.TotalSprintDistance;
 
 			return dict;
@@ -677,18 +735,18 @@ namespace FootballSim.Bridge
 			if (ts?.Hypothesis == null) return dict;
 
 			var h = ts.Hypothesis;
-			dict["overall_execution"]        = h.OverallExecutionScore;
-			dict["headline_summary"]         = h.HeadlineSummary ?? string.Empty;
-			dict["press_collapse_minute"]    = h.PressCollapseMinute;
+			dict["overall_execution"] = h.OverallExecutionScore;
+			dict["headline_summary"] = h.HeadlineSummary ?? string.Empty;
+			dict["press_collapse_minute"] = h.PressCollapseMinute;
 			dict["press_collapse_player_id"] = h.PressCollapsePlayerId;
 
-			AppendDimension(dict, "pressing_",        h.Pressing);
-			AppendDimension(dict, "possession_",      h.Possession);
-			AppendDimension(dict, "high_line_",       h.HighLine);
-			AppendDimension(dict, "passing_style_",   h.PassingStyle);
+			AppendDimension(dict, "pressing_", h.Pressing);
+			AppendDimension(dict, "possession_", h.Possession);
+			AppendDimension(dict, "high_line_", h.HighLine);
+			AppendDimension(dict, "passing_style_", h.PassingStyle);
 			AppendDimension(dict, "attacking_width_", h.AttackingWidth);
-			AppendDimension(dict, "tempo_",           h.Tempo);
-			AppendDimension(dict, "shape_held_",      h.ShapeHeld);
+			AppendDimension(dict, "tempo_", h.Tempo);
+			AppendDimension(dict, "shape_held_", h.ShapeHeld);
 
 			return dict;
 		}
@@ -728,11 +786,11 @@ namespace FootballSim.Bridge
 		{
 			var team = new TeamData
 			{
-				TeamId            = teamId,
-				Name              = ReadString(d, "name",          $"Team {teamId}"),
-				FormationName     = ReadString(d, "formation",     "4-3-3"),
-				KitColorPrimary   = ReadInt(d,    "kit_primary",   teamId == 0 ? 0x2266FF : 0xFF3333),
-				KitColorSecondary = ReadInt(d,    "kit_secondary", 0xFFFFFF),
+				TeamId = teamId,
+				Name = ReadString(d, "name", $"Team {teamId}"),
+				FormationName = ReadString(d, "formation", "4-3-3"),
+				KitColorPrimary = ReadInt(d, "kit_primary", teamId == 0 ? 0x2266FF : 0xFF3333),
+				KitColorSecondary = ReadInt(d, "kit_secondary", 0xFFFFFF),
 			};
 
 			// Parse tactics
@@ -767,7 +825,7 @@ namespace FootballSim.Bridge
 				team.Players[slot] = ParsePlayerData(
 					playersArr[slot].AsGodotDictionary(),
 					playerId: globalOffset + slot,
-					slot:     slot,
+					slot: slot,
 					teamName: team.Name
 				);
 			}
@@ -790,18 +848,18 @@ namespace FootballSim.Bridge
 
 			return new PlayerData
 			{
-				PlayerId         = playerId,
-				ShirtNumber      = ReadInt(d,   "shirt_number", slot + 1),
-				Name             = ReadString(d, "name",        $"P{slot + 1}"),
-				Role             = role,
-				BaseSpeed        = ReadFloat(d,  "base_speed",  0.5f),
-				StaminaAttribute = ReadFloat(d,  "stamina",     0.7f),
-				PassingAbility   = ReadFloat(d,  "passing",     0.5f),
-				ShootingAbility  = ReadFloat(d,  "shooting",    0.5f),
-				DribblingAbility = ReadFloat(d,  "dribbling",   0.5f),
-				DefendingAbility = ReadFloat(d,  "defending",   0.5f),
-				Reactions        = ReadFloat(d,  "reactions",   0.5f),
-				Ego              = ReadFloat(d,  "ego",         0.5f),
+				PlayerId = playerId,
+				ShirtNumber = ReadInt(d, "shirt_number", slot + 1),
+				Name = ReadString(d, "name", $"P{slot + 1}"),
+				Role = role,
+				BaseSpeed = ReadFloat(d, "base_speed", 0.5f),
+				StaminaAttribute = ReadFloat(d, "stamina", 0.7f),
+				PassingAbility = ReadFloat(d, "passing", 0.5f),
+				ShootingAbility = ReadFloat(d, "shooting", 0.5f),
+				DribblingAbility = ReadFloat(d, "dribbling", 0.5f),
+				DefendingAbility = ReadFloat(d, "defending", 0.5f),
+				Reactions = ReadFloat(d, "reactions", 0.5f),
+				Ego = ReadFloat(d, "ego", 0.5f),
 			};
 		}
 
@@ -811,28 +869,28 @@ namespace FootballSim.Bridge
 			// MathUtil.Clamp01 ensures rogue GDScript values can't break the engine.
 			return new TacticsInput
 			{
-				PressingIntensity    = Clamp01(ReadFloat(d, "pressing_intensity",    0.5f)),
-				PressingTrigger      = Clamp01(ReadFloat(d, "pressing_trigger",      0.5f)),
-				PressCompactness     = Clamp01(ReadFloat(d, "press_compactness",     0.5f)),
-				DefensiveLine        = Clamp01(ReadFloat(d, "defensive_line",        0.5f)),
-				DefensiveWidth       = Clamp01(ReadFloat(d, "defensive_width",       0.5f)),
-				DefensiveAggression  = Clamp01(ReadFloat(d, "defensive_aggression",  0.5f)),
-				PossessionFocus      = Clamp01(ReadFloat(d, "possession_focus",      0.5f)),
-				BuildUpSpeed         = Clamp01(ReadFloat(d, "build_up_speed",        0.5f)),
-				PassingDirectness    = Clamp01(ReadFloat(d, "passing_directness",    0.5f)),
-				AttackingWidth       = Clamp01(ReadFloat(d, "attacking_width",       0.5f)),
-				AttackingLine        = Clamp01(ReadFloat(d, "attacking_line",        0.5f)),
-				TransitionSpeed      = Clamp01(ReadFloat(d, "transition_speed",      0.5f)),
-				CrossingFrequency    = Clamp01(ReadFloat(d, "crossing_frequency",    0.5f)),
-				ShootingThreshold    = Clamp01(ReadFloat(d, "shooting_threshold",    0.5f)),
-				Tempo                = Clamp01(ReadFloat(d, "tempo",                 0.5f)),
+				PressingIntensity = Clamp01(ReadFloat(d, "pressing_intensity", 0.5f)),
+				PressingTrigger = Clamp01(ReadFloat(d, "pressing_trigger", 0.5f)),
+				PressCompactness = Clamp01(ReadFloat(d, "press_compactness", 0.5f)),
+				DefensiveLine = Clamp01(ReadFloat(d, "defensive_line", 0.5f)),
+				DefensiveWidth = Clamp01(ReadFloat(d, "defensive_width", 0.5f)),
+				DefensiveAggression = Clamp01(ReadFloat(d, "defensive_aggression", 0.5f)),
+				PossessionFocus = Clamp01(ReadFloat(d, "possession_focus", 0.5f)),
+				BuildUpSpeed = Clamp01(ReadFloat(d, "build_up_speed", 0.5f)),
+				PassingDirectness = Clamp01(ReadFloat(d, "passing_directness", 0.5f)),
+				AttackingWidth = Clamp01(ReadFloat(d, "attacking_width", 0.5f)),
+				AttackingLine = Clamp01(ReadFloat(d, "attacking_line", 0.5f)),
+				TransitionSpeed = Clamp01(ReadFloat(d, "transition_speed", 0.5f)),
+				CrossingFrequency = Clamp01(ReadFloat(d, "crossing_frequency", 0.5f)),
+				ShootingThreshold = Clamp01(ReadFloat(d, "shooting_threshold", 0.5f)),
+				Tempo = Clamp01(ReadFloat(d, "tempo", 0.5f)),
 				OutOfPossessionShape = Clamp01(ReadFloat(d, "out_of_possession_shape", 0.5f)),
-				InPossessionSpread   = Clamp01(ReadFloat(d, "in_possession_spread",  0.5f)),
-				FreedomLevel         = Clamp01(ReadFloat(d, "freedom_level",         0.5f)),
-				CounterAttackFocus   = Clamp01(ReadFloat(d, "counter_attack_focus",  0.5f)),
+				InPossessionSpread = Clamp01(ReadFloat(d, "in_possession_spread", 0.5f)),
+				FreedomLevel = Clamp01(ReadFloat(d, "freedom_level", 0.5f)),
+				CounterAttackFocus = Clamp01(ReadFloat(d, "counter_attack_focus", 0.5f)),
 				OffsideTrapFrequency = Clamp01(ReadFloat(d, "offside_trap_frequency", 0.2f)),
-				PhysicalityBias      = Clamp01(ReadFloat(d, "physicality_bias",      0.5f)),
-				SetPieceFocus        = Clamp01(ReadFloat(d, "set_piece_focus",       0.5f)),
+				PhysicalityBias = Clamp01(ReadFloat(d, "physicality_bias", 0.5f)),
+				SetPieceFocus = Clamp01(ReadFloat(d, "set_piece_focus", 0.5f)),
 			};
 		}
 
@@ -867,7 +925,7 @@ namespace FootballSim.Bridge
 			if (!d.ContainsKey(key)) return fallback;
 			var v = d[key];
 			if (v.VariantType == Variant.Type.Float) return v.AsSingle();
-			if (v.VariantType == Variant.Type.Int)   return (float)v.AsInt32();
+			if (v.VariantType == Variant.Type.Int) return (float)v.AsInt32();
 			return fallback;
 		}
 
@@ -890,11 +948,11 @@ namespace FootballSim.Bridge
 											 string prefix,
 											 HypothesisDimension dim)
 		{
-			dict[prefix + "intent"]    = dim.IntentScore;
-			dict[prefix + "actual"]    = dim.ActualScore;
-			dict[prefix + "gap"]       = dim.ExecutionGap;
+			dict[prefix + "intent"] = dim.IntentScore;
+			dict[prefix + "actual"] = dim.ActualScore;
+			dict[prefix + "gap"] = dim.ExecutionGap;
 			dict[prefix + "execution"] = dim.ExecutionScore;
-			dict[prefix + "reason"]    = dim.GapReason ?? string.Empty;
+			dict[prefix + "reason"] = dim.GapReason ?? string.Empty;
 		}
 	}
 }

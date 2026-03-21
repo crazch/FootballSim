@@ -120,14 +120,14 @@ namespace FootballSim.Engine.Systems
     public struct CollisionResult
     {
         public CollisionResultType Type;
-        public int    PrimaryPlayerId;    // winner / tackler / interceptor / GK
-        public int    SecondaryPlayerId;  // loser / attacker / passer (-1 if none)
-        public Vec2   Position;           // where the contest happened
-        public float  Probability;        // p used in the winning roll (for ExtraFloat)
-        public float  FoulSeverity;       // 0–1, only set when TaclkeFoul
-        public bool   IsClean;            // true when tackle was clean (no foul risk)
-        public float  ShotXG;             // populated on GKSave / Goal
-        public int    DefendingTeamId;    // which team benefits from the result
+        public int PrimaryPlayerId;    // winner / tackler / interceptor / GK
+        public int SecondaryPlayerId;  // loser / attacker / passer (-1 if none)
+        public Vec2 Position;           // where the contest happened
+        public float Probability;        // p used in the winning roll (for ExtraFloat)
+        public float FoulSeverity;       // 0–1, only set when TaclkeFoul
+        public bool IsClean;            // true when tackle was clean (no foul risk)
+        public float ShotXG;             // populated on GKSave / Goal
+        public int DefendingTeamId;    // which team benefits from the result
     }
 
     // =========================================================================
@@ -252,14 +252,14 @@ namespace FootballSim.Engine.Systems
             // Reset last result
             ctx.LastCollisionResult = new CollisionResult
             {
-                Type              = CollisionResultType.None,
-                PrimaryPlayerId   = -1,
+                Type = CollisionResultType.None,
+                PrimaryPlayerId = -1,
                 SecondaryPlayerId = -1,
             };
 
             // Skip contests when match is not in live-play states
             if (ctx.Phase == MatchPhase.HalfTime ||
-                ctx.Phase == MatchPhase.FullTime  ||
+                ctx.Phase == MatchPhase.FullTime ||
                 ctx.Phase == MatchPhase.GoalScored)
                 return;
 
@@ -294,7 +294,7 @@ namespace FootballSim.Engine.Systems
 
             // Find any opponent in TackleAttempt action within TACKLE_RANGE
             int oppStart = carrier.TeamId == 0 ? 11 : 0;
-            int oppEnd   = carrier.TeamId == 0 ? 22 : 11;
+            int oppEnd = carrier.TeamId == 0 ? 22 : 11;
 
             for (int i = oppStart; i < oppEnd; i++)
             {
@@ -324,8 +324,8 @@ namespace FootballSim.Engine.Systems
             float attScore = MathUtil.Lerp(0f, 1f, 1f - carrier.DribblingAbility);
 
             float staminaFactor = MathUtil.Lerp(0.6f, 1.0f, defender.Stamina);
-            float aggrFactor    = MathUtil.Lerp(0.8f, 1.15f, tactics.DefensiveAggression);
-            float distFactor    = MathUtil.Lerp(1.0f, 0.7f,
+            float aggrFactor = MathUtil.Lerp(0.8f, 1.15f, tactics.DefensiveAggression);
+            float distFactor = MathUtil.Lerp(1.0f, 0.7f,
                                     dist / CollisionConstants.TACKLE_RANGE);
 
             float p = MathUtil.Lerp(
@@ -352,13 +352,13 @@ namespace FootballSim.Engine.Systems
 
                 ctx.LastCollisionResult = new CollisionResult
                 {
-                    Type              = CollisionResultType.TackleSuccess,
-                    PrimaryPlayerId   = defender.PlayerId,
+                    Type = CollisionResultType.TackleSuccess,
+                    PrimaryPlayerId = defender.PlayerId,
                     SecondaryPlayerId = carrier.PlayerId,
-                    Position          = defender.Position,
-                    Probability       = p,
-                    IsClean           = true,
-                    DefendingTeamId   = defender.TeamId,
+                    Position = defender.Position,
+                    Probability = p,
+                    IsClean = true,
+                    DefendingTeamId = defender.TeamId,
                 };
             }
             else
@@ -375,14 +375,14 @@ namespace FootballSim.Engine.Systems
 
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.TaclkeFoul,
-                        PrimaryPlayerId   = defender.PlayerId,
+                        Type = CollisionResultType.TaclkeFoul,
+                        PrimaryPlayerId = defender.PlayerId,
                         SecondaryPlayerId = carrier.PlayerId,
-                        Position          = defender.Position,
-                        Probability       = foulP,
-                        FoulSeverity      = severity,
-                        IsClean           = false,
-                        DefendingTeamId   = carrier.TeamId, // fouled team benefits
+                        Position = defender.Position,
+                        Probability = foulP,
+                        FoulSeverity = severity,
+                        IsClean = false,
+                        DefendingTeamId = carrier.TeamId, // fouled team benefits
                     };
                     // Ball stays with carrier (foul = free kick)
                 }
@@ -391,13 +391,13 @@ namespace FootballSim.Engine.Systems
                     // Clean miss — defender slides past, ball stays with carrier
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.TackleFailed,
-                        PrimaryPlayerId   = defender.PlayerId,
+                        Type = CollisionResultType.TackleFailed,
+                        PrimaryPlayerId = defender.PlayerId,
                         SecondaryPlayerId = carrier.PlayerId,
-                        Position          = defender.Position,
-                        Probability       = p,
-                        IsClean           = true,
-                        DefendingTeamId   = carrier.TeamId,
+                        Position = defender.Position,
+                        Probability = p,
+                        IsClean = true,
+                        DefendingTeamId = carrier.TeamId,
                     };
                 }
             }
@@ -420,18 +420,18 @@ namespace FootballSim.Engine.Systems
             Vec2 ballDir = ballVel.Normalized();
 
             // Determine which team is defending (team that did NOT send the ball)
-            int lastTouched  = ctx.Ball.LastTouchedBy;
+            int lastTouched = ctx.Ball.LastTouchedBy;
             if (lastTouched < 0 || lastTouched > 21) return;
 
             int attackingTeam = ctx.Players[lastTouched].TeamId;
-            int defStart      = attackingTeam == 0 ? 11 : 0;
-            int defEnd        = attackingTeam == 0 ? 22 : 11;
+            int defStart = attackingTeam == 0 ? 11 : 0;
+            int defEnd = attackingTeam == 0 ? 22 : 11;
 
             // Don't test the intended pass receiver (BallSystem handles that arrival)
             int passTarget = ctx.Ball.PassTargetId;
 
-            float bestP  = -1f;
-            int   bestId = -1;
+            float bestP = -1f;
+            int bestId = -1;
 
             for (int i = defStart; i < defEnd; i++)
             {
@@ -440,11 +440,14 @@ namespace FootballSim.Engine.Systems
                 if (i == passTarget) continue; // receiver claimed by BallSystem
 
                 // Project defender onto ball trajectory line
-                Vec2 toPlayer   = def.Position - ballPos;
-                float along     = toPlayer.Dot(ballDir);     // signed, must be > 0
+                Vec2 toPlayer = def.Position - ballPos;
+                float along = toPlayer.Dot(ballDir);     // signed, must be > 0
 
                 // Only intercept if ball is still approaching (ahead on trajectory)
                 if (along < 0f) continue;
+
+                float maxInterceptRange = ballVel.Length() * 20f; // example scaling factor
+                if (along > maxInterceptRange) continue;
 
                 float lateral = MathF.Sqrt(MathF.Max(0f,
                     toPlayer.LengthSquared() - along * along));
@@ -481,7 +484,7 @@ namespace FootballSim.Engine.Systems
             {
                 // Check: clean claim or deflection
                 double claimRoll = NextDouble(ctx);
-                bool cleanClaim  = claimRoll < CollisionConstants.INTERCEPT_CLEAN_CLAIM_P;
+                bool cleanClaim = claimRoll < CollisionConstants.INTERCEPT_CLEAN_CLAIM_P;
 
                 if (cleanClaim || ctx.Ball.Height < 0.3f)
                 {
@@ -489,13 +492,13 @@ namespace FootballSim.Engine.Systems
 
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.InterceptSuccess,
-                        PrimaryPlayerId   = bestId,
+                        Type = CollisionResultType.InterceptSuccess,
+                        PrimaryPlayerId = bestId,
                         SecondaryPlayerId = lastTouched,
-                        Position          = interceptor.Position,
-                        Probability       = bestP,
-                        IsClean           = true,
-                        DefendingTeamId   = interceptor.TeamId,
+                        Position = interceptor.Position,
+                        Probability = bestP,
+                        IsClean = true,
+                        DefendingTeamId = interceptor.TeamId,
                     };
                 }
                 else
@@ -506,13 +509,13 @@ namespace FootballSim.Engine.Systems
 
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.InterceptDeflection,
-                        PrimaryPlayerId   = bestId,
+                        Type = CollisionResultType.InterceptDeflection,
+                        PrimaryPlayerId = bestId,
                         SecondaryPlayerId = lastTouched,
-                        Position          = interceptor.Position,
-                        Probability       = bestP,
-                        IsClean           = false,
-                        DefendingTeamId   = interceptor.TeamId,
+                        Position = interceptor.Position,
+                        Probability = bestP,
+                        IsClean = false,
+                        DefendingTeamId = interceptor.TeamId,
                     };
                 }
             }
@@ -549,7 +552,7 @@ namespace FootballSim.Engine.Systems
                 if (d < distA)
                 {
                     distB = distA; contesterB = contesterA;
-                    distA = d;     contesterA = i;
+                    distA = d; contesterA = i;
                 }
                 else if (d < distB)
                 {
@@ -598,13 +601,13 @@ namespace FootballSim.Engine.Systems
 
             ctx.LastCollisionResult = new CollisionResult
             {
-                Type              = CollisionResultType.LooseBallClaimed,
-                PrimaryPlayerId   = winner,
+                Type = CollisionResultType.LooseBallClaimed,
+                PrimaryPlayerId = winner,
                 SecondaryPlayerId = -1,
-                Position          = ctx.Ball.Position,
-                Probability       = 1f,
-                IsClean           = true,
-                DefendingTeamId   = ctx.Players[winner].TeamId,
+                Position = ctx.Ball.Position,
+                Probability = 1f,
+                IsClean = true,
+                DefendingTeamId = ctx.Players[winner].TeamId,
             };
         }
 
@@ -625,11 +628,11 @@ namespace FootballSim.Engine.Systems
                 attackingTeam = 1;
             else return;
 
-            float goalLineY  = attackingTeam == 0
+            float goalLineY = attackingTeam == 0
                 ? PhysicsConstants.AWAY_GOAL_LINE_Y
                 : PhysicsConstants.HOME_GOAL_LINE_Y;
 
-            float goalLeftX  = PhysicsConstants.AWAY_GOAL_LEFT_X;
+            float goalLeftX = PhysicsConstants.AWAY_GOAL_LEFT_X;
             float goalRightX = PhysicsConstants.AWAY_GOAL_RIGHT_X;
 
             bool ballApproachingGoal = attackingTeam == 0
@@ -656,10 +659,10 @@ namespace FootballSim.Engine.Systems
             }
 
             // Find opponent GK
-            int gkTeam  = attackingTeam == 0 ? 1 : 0;
+            int gkTeam = attackingTeam == 0 ? 1 : 0;
             int gkStart = gkTeam == 0 ? 0 : 11;
-            int gkEnd   = gkTeam == 0 ? 11 : 22;
-            int gkId    = -1;
+            int gkEnd = gkTeam == 0 ? 11 : 22;
+            int gkId = -1;
 
             for (int i = gkStart; i < gkEnd; i++)
             {
@@ -684,10 +687,10 @@ namespace FootballSim.Engine.Systems
             // Real xG was calculated at shot moment; we approximate here from speed
             float ballSpeed = ctx.Ball.Velocity.Length();
             float speedNorm = MathUtil.Clamp01(ballSpeed / PhysicsConstants.BALL_SHOT_SPEED_POWER);
-            float shotXG    = MathUtil.Lerp(0.05f, 0.85f, speedNorm);
+            float shotXG = MathUtil.Lerp(0.05f, 0.85f, speedNorm);
 
             // Angle bonus: how centred is GK on the ball's X trajectory
-            float ballX     = ctx.Ball.Position.X;
+            float ballX = ctx.Ball.Position.X;
             float gkOffsetX = MathF.Abs(gk.Position.X - ballX);
             float maxOffset = (goalRightX - goalLeftX) * 0.5f;
             float angleMult = MathUtil.Lerp(1.0f, 0.5f, gkOffsetX / maxOffset);
@@ -700,7 +703,7 @@ namespace FootballSim.Engine.Systems
 
             // Harder shot (higher xG) = lower save probability
             float saveDiffMult = MathUtil.Lerp(1.0f, 0.4f, shotXG);
-            float saveP        = MathUtil.Clamp01(savePBase * saveDiffMult * angleMult);
+            float saveP = MathUtil.Clamp01(savePBase * saveDiffMult * angleMult);
 
             double roll = NextDouble(ctx);
 
@@ -713,7 +716,7 @@ namespace FootballSim.Engine.Systems
             {
                 // Save — catch or parry?
                 double catchRoll = NextDouble(ctx);
-                bool   catches   = catchRoll < CollisionConstants.SAVE_CATCH_P;
+                bool catches = catchRoll < CollisionConstants.SAVE_CATCH_P;
 
                 if (catches)
                 {
@@ -721,13 +724,13 @@ namespace FootballSim.Engine.Systems
 
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.GKCatch,
-                        PrimaryPlayerId   = gkId,
+                        Type = CollisionResultType.GKCatch,
+                        PrimaryPlayerId = gkId,
                         SecondaryPlayerId = ctx.Ball.LastTouchedBy,
-                        Position          = gk.Position,
-                        Probability       = saveP,
-                        ShotXG            = shotXG,
-                        DefendingTeamId   = gkTeam,
+                        Position = gk.Position,
+                        Probability = saveP,
+                        ShotXG = shotXG,
+                        DefendingTeamId = gkTeam,
                     };
                 }
                 else
@@ -738,13 +741,13 @@ namespace FootballSim.Engine.Systems
 
                     ctx.LastCollisionResult = new CollisionResult
                     {
-                        Type              = CollisionResultType.GKSave,
-                        PrimaryPlayerId   = gkId,
+                        Type = CollisionResultType.GKSave,
+                        PrimaryPlayerId = gkId,
                         SecondaryPlayerId = ctx.Ball.LastTouchedBy,
-                        Position          = gk.Position,
-                        Probability       = saveP,
-                        ShotXG            = shotXG,
-                        DefendingTeamId   = gkTeam,
+                        Position = gk.Position,
+                        Probability = saveP,
+                        ShotXG = shotXG,
+                        DefendingTeamId = gkTeam,
                     };
                 }
             }
@@ -753,7 +756,7 @@ namespace FootballSim.Engine.Systems
                 // No save — goal!
                 // Verify ball is actually within goal mouth X range
                 float xAtGoal = ctx.Ball.Position.X;
-                bool  ownGoal = IsOwnGoal(ctx.Ball.LastTouchedBy, attackingTeam);
+                bool ownGoal = IsOwnGoal(ctx.Ball.LastTouchedBy, attackingTeam);
 
                 if (xAtGoal >= goalLeftX && xAtGoal <= goalRightX)
                 {
@@ -761,12 +764,12 @@ namespace FootballSim.Engine.Systems
                     {
                         ctx.LastCollisionResult = new CollisionResult
                         {
-                            Type              = CollisionResultType.OwnGoal,
-                            PrimaryPlayerId   = ctx.Ball.LastTouchedBy,
+                            Type = CollisionResultType.OwnGoal,
+                            PrimaryPlayerId = ctx.Ball.LastTouchedBy,
                             SecondaryPlayerId = -1,
-                            Position          = ctx.Ball.Position,
-                            ShotXG            = shotXG,
-                            DefendingTeamId   = 1 - attackingTeam,
+                            Position = ctx.Ball.Position,
+                            ShotXG = shotXG,
+                            DefendingTeamId = 1 - attackingTeam,
                         };
                     }
                     else
@@ -785,16 +788,16 @@ namespace FootballSim.Engine.Systems
         {
             float ballSpeed = ctx.Ball.Velocity.Length();
             float speedNorm = MathUtil.Clamp01(ballSpeed / PhysicsConstants.BALL_SHOT_SPEED_POWER);
-            float shotXG    = MathUtil.Lerp(0.05f, 0.85f, speedNorm);
+            float shotXG = MathUtil.Lerp(0.05f, 0.85f, speedNorm);
 
             ctx.LastCollisionResult = new CollisionResult
             {
-                Type              = CollisionResultType.Goal,
-                PrimaryPlayerId   = ctx.Ball.LastTouchedBy,
+                Type = CollisionResultType.Goal,
+                PrimaryPlayerId = ctx.Ball.LastTouchedBy,
                 SecondaryPlayerId = -1,
-                Position          = ctx.Ball.Position,
-                ShotXG            = shotXG,
-                DefendingTeamId   = 1 - scoringTeam,
+                Position = ctx.Ball.Position,
+                ShotXG = shotXG,
+                DefendingTeamId = 1 - scoringTeam,
             };
         }
 
@@ -802,9 +805,9 @@ namespace FootballSim.Engine.Systems
                                                      float aggressionSlider,
                                                      float dist)
         {
-            float aggrBonus   = MathUtil.Lerp(0f, CollisionConstants.FOUL_AGGRESSION_BONUS,
+            float aggrBonus = MathUtil.Lerp(0f, CollisionConstants.FOUL_AGGRESSION_BONUS,
                                                aggressionSlider);
-            float distBonus   = MathUtil.Lerp(0.1f, 0f, dist / CollisionConstants.TACKLE_RANGE);
+            float distBonus = MathUtil.Lerp(0.1f, 0f, dist / CollisionConstants.TACKLE_RANGE);
             return MathUtil.Clamp01(CollisionConstants.FOUL_BASE_PROBABILITY
                                     + aggrBonus + distBonus);
         }
@@ -814,9 +817,9 @@ namespace FootballSim.Engine.Systems
                                                    float aggressionSlider,
                                                    MatchContext ctx)
         {
-            float baseS   = MathUtil.Lerp(0.1f, 0.6f, aggressionSlider);
-            float distAdj = MathUtil.Lerp(0.2f, 0f,   dist / CollisionConstants.TACKLE_RANGE);
-            float jitter  = (float)(NextDouble(ctx) * 0.15); // small random variance
+            float baseS = MathUtil.Lerp(0.1f, 0.6f, aggressionSlider);
+            float distAdj = MathUtil.Lerp(0.2f, 0f, dist / CollisionConstants.TACKLE_RANGE);
+            float jitter = (float)(NextDouble(ctx) * 0.15); // small random variance
             return MathUtil.Clamp01(baseS + distAdj + jitter);
         }
 

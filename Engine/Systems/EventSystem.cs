@@ -89,6 +89,11 @@ namespace FootballSim.Engine.Systems
         // ── Match Timing Constants ────────────────────────────────────────────
 
         /// <summary>
+        /// Distance ball must move from centre to finish kickoff
+        /// </summary>
+        private const float KICKOFF_OPEN_PLAY_THRESHOLD = 80f;
+
+        /// <summary>
         /// Tick at which first half ends. 45 min × 60 s/min × 10 ticks/s = 27000.
         /// </summary>
         public const int HALF_TIME_TICK = 27000;
@@ -113,9 +118,9 @@ namespace FootballSim.Engine.Systems
         // ── Tick state — carry one field between sub-methods ──────────────────
 
         // Last known passer — used to attribute assists retroactively on the next goal
-        private static int  _lastPasserId   = -1;
-        private static int  _lastPassTeam   = -1;
-        private static float _lastShotXG    = 0f;
+        private static int _lastPasserId = -1;
+        private static int _lastPassTeam = -1;
+        private static float _lastShotXG = 0f;
         private static bool _shotWasInFlight = false; // true on the tick a shot was launched
 
         // ── Main Tick ─────────────────────────────────────────────────────────
@@ -210,7 +215,7 @@ namespace FootballSim.Engine.Systems
 
             // Update score
             if (scorerTeam == 0) ctx.HomeScore++;
-            else                 ctx.AwayScore++;
+            else ctx.AwayScore++;
 
             // Build assist info
             int assisterId = -1;
@@ -221,11 +226,11 @@ namespace FootballSim.Engine.Systems
                 assisterId = _lastPasserId;
             }
 
-            string teamLabel  = scorerTeam == 0 ? "Home" : "Away";
+            string teamLabel = scorerTeam == 0 ? "Home" : "Away";
             string assistPart = assisterId >= 0
                 ? $" | assisted by P{ctx.Players[assisterId].ShirtNumber}"
                 : "";
-            string prefix     = isOwn ? "OWN GOAL" : "GOAL";
+            string prefix = isOwn ? "OWN GOAL" : "GOAL";
 
             string desc = $"{ctx.MatchMinute}' {prefix} — " +
                           $"P{ctx.Players[cr.PrimaryPlayerId].ShirtNumber} [{teamLabel}]" +
@@ -233,14 +238,14 @@ namespace FootballSim.Engine.Systems
                           $"Score: {ctx.HomeScore}–{ctx.AwayScore}";
 
             var ev = BuildEvent(ctx,
-                type:      isOwn ? MatchEventType.OwnGoal : MatchEventType.Goal,
-                primary:   cr.PrimaryPlayerId,
+                type: isOwn ? MatchEventType.OwnGoal : MatchEventType.Goal,
+                primary: cr.PrimaryPlayerId,
                 secondary: assisterId,
-                teamId:    scorerTeam,
-                pos:       cr.Position,
-                ef:        cr.ShotXG,
-                eb:        true,
-                desc:      desc);
+                teamId: scorerTeam,
+                pos: cr.Position,
+                ef: cr.ShotXG,
+                eb: true,
+                desc: desc);
 
             ctx.EventsThisTick.Add(ev);
             ctx.Phase = MatchPhase.GoalScored;
@@ -273,7 +278,7 @@ namespace FootballSim.Engine.Systems
         private static void EmitTackle(MatchContext ctx, CollisionResult cr)
         {
             string tacklerTeam = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
-            string fouledTeam  = cr.SecondaryPlayerId <= 10 ? "Home" : "Away";
+            string fouledTeam = cr.SecondaryPlayerId <= 10 ? "Home" : "Away";
 
             string desc = $"{ctx.MatchMinute}' TACKLE — " +
                           $"P{ctx.Players[cr.PrimaryPlayerId].ShirtNumber} [{tacklerTeam}] " +
@@ -281,14 +286,14 @@ namespace FootballSim.Engine.Systems
                           $"P{ctx.Players[cr.SecondaryPlayerId].ShirtNumber} [{fouledTeam}]";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.TackleSuccess,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.TackleSuccess,
+                primary: cr.PrimaryPlayerId,
                 secondary: cr.SecondaryPlayerId,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        cr.Probability,
-                eb:        cr.IsClean,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: cr.Probability,
+                eb: cr.IsClean,
+                desc: desc));
 
             LogDebug(ctx, desc);
         }
@@ -299,7 +304,7 @@ namespace FootballSim.Engine.Systems
         {
             // Which area? Determines free kick vs penalty
             bool inPenaltyBox = IsInPenaltyBox(cr.Position, cr.DefendingTeamId);
-            string teamLabel  = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
+            string teamLabel = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
             string victimLabel = cr.SecondaryPlayerId >= 0
                 ? (cr.SecondaryPlayerId <= 10 ? "Home" : "Away") : "";
 
@@ -356,25 +361,25 @@ namespace FootballSim.Engine.Systems
 
             // Emit foul event
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.Foul,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.Foul,
+                primary: cr.PrimaryPlayerId,
                 secondary: cr.SecondaryPlayerId,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        cr.FoulSeverity,
-                eb:        inPenaltyBox,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: cr.FoulSeverity,
+                eb: inPenaltyBox,
+                desc: desc));
 
             // Emit free kick or penalty
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      foulType,
-                primary:   cr.SecondaryPlayerId >= 0 ? cr.SecondaryPlayerId : cr.PrimaryPlayerId,
+                type: foulType,
+                primary: cr.SecondaryPlayerId >= 0 ? cr.SecondaryPlayerId : cr.PrimaryPlayerId,
                 secondary: -1,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        0f,
-                eb:        false,
-                desc:      inPenaltyBox
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: 0f,
+                eb: false,
+                desc: inPenaltyBox
                     ? $"{ctx.MatchMinute}' PENALTY — " +
                       $"{(cr.DefendingTeamId == 0 ? "Home" : "Away")} awarded"
                     : $"{ctx.MatchMinute}' FREE KICK — " +
@@ -387,7 +392,7 @@ namespace FootballSim.Engine.Systems
 
         private static void EmitIntercept(MatchContext ctx, CollisionResult cr)
         {
-            string intTeam  = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
+            string intTeam = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
             string passTeam = cr.SecondaryPlayerId >= 0
                 ? (cr.SecondaryPlayerId <= 10 ? "Home" : "Away") : "?";
 
@@ -402,14 +407,14 @@ namespace FootballSim.Engine.Systems
                         $"P{ctx.Players[cr.SecondaryPlayerId].ShirtNumber} [{passTeam}]";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.PassIntercepted,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.PassIntercepted,
+                primary: cr.PrimaryPlayerId,
                 secondary: cr.SecondaryPlayerId,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        cr.Probability,
-                eb:        clean,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: cr.Probability,
+                eb: clean,
+                desc: desc));
 
             LogDebug(ctx, desc);
         }
@@ -424,14 +429,14 @@ namespace FootballSim.Engine.Systems
                           $"claims loose ball";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.PossessionWon,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.PossessionWon,
+                primary: cr.PrimaryPlayerId,
                 secondary: -1,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        0f,
-                eb:        false,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: 0f,
+                eb: false,
+                desc: desc));
 
             LogDebug(ctx, desc);
         }
@@ -440,11 +445,11 @@ namespace FootballSim.Engine.Systems
 
         private static void EmitSave(MatchContext ctx, CollisionResult cr)
         {
-            string gkTeam      = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
+            string gkTeam = cr.PrimaryPlayerId <= 10 ? "Home" : "Away";
             string shooterTeam = cr.SecondaryPlayerId >= 0
                 ? (cr.SecondaryPlayerId <= 10 ? "Home" : "Away") : "?";
-            bool   caught      = cr.Type == CollisionResultType.GKCatch;
-            string action      = caught ? "catches" : "saves";
+            bool caught = cr.Type == CollisionResultType.GKCatch;
+            string action = caught ? "catches" : "saves";
 
             string desc = $"{ctx.MatchMinute}' SAVE — GK " +
                           $"P{ctx.Players[cr.PrimaryPlayerId].ShirtNumber} [{gkTeam}] " +
@@ -456,28 +461,28 @@ namespace FootballSim.Engine.Systems
             desc += $" | xG: {cr.ShotXG:F2}";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.Save,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.Save,
+                primary: cr.PrimaryPlayerId,
                 secondary: cr.SecondaryPlayerId,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        cr.ShotXG,
-                eb:        caught,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: cr.ShotXG,
+                eb: caught,
+                desc: desc));
 
             // Also emit ShotOnTarget (the shot that was saved)
             if (cr.SecondaryPlayerId >= 0)
             {
                 string shooterLabel = cr.SecondaryPlayerId <= 10 ? "Home" : "Away";
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.ShotOnTarget,
-                    primary:   cr.SecondaryPlayerId,
+                    type: MatchEventType.ShotOnTarget,
+                    primary: cr.SecondaryPlayerId,
                     secondary: cr.PrimaryPlayerId,
-                    teamId:    cr.SecondaryPlayerId <= 10 ? 0 : 1,
-                    pos:       ctx.Players[cr.SecondaryPlayerId].Position,
-                    ef:        cr.ShotXG,
-                    eb:        true,
-                    desc:      $"{ctx.MatchMinute}' SHOT ON TARGET — " +
+                    teamId: cr.SecondaryPlayerId <= 10 ? 0 : 1,
+                    pos: ctx.Players[cr.SecondaryPlayerId].Position,
+                    ef: cr.ShotXG,
+                    eb: true,
+                    desc: $"{ctx.MatchMinute}' SHOT ON TARGET — " +
                                $"P{ctx.Players[cr.SecondaryPlayerId].ShirtNumber} " +
                                $"[{shooterLabel}] | xG: {cr.ShotXG:F2}"));
             }
@@ -496,14 +501,14 @@ namespace FootballSim.Engine.Systems
                           (won ? "wins" : "loses") + " aerial contest";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.HeaderAttempt,
-                primary:   cr.PrimaryPlayerId,
+                type: MatchEventType.HeaderAttempt,
+                primary: cr.PrimaryPlayerId,
                 secondary: cr.SecondaryPlayerId,
-                teamId:    cr.DefendingTeamId,
-                pos:       cr.Position,
-                ef:        0f,
-                eb:        won,
-                desc:      desc));
+                teamId: cr.DefendingTeamId,
+                pos: cr.Position,
+                ef: 0f,
+                eb: won,
+                desc: desc));
         }
 
         // =====================================================================
@@ -513,8 +518,8 @@ namespace FootballSim.Engine.Systems
         private static void ProcessOutOfPlay(MatchContext ctx)
         {
             // Determine set piece type from ball position and last touch
-            int  lastToucher = ctx.Ball.LastTouchedBy;
-            int  lastTeam    = lastToucher >= 0 && lastToucher <= 10 ? 0 : 1;
+            int lastToucher = ctx.Ball.LastTouchedBy;
+            int lastTeam = lastToucher >= 0 && lastToucher <= 10 ? 0 : 1;
 
             Vec2 ballPos = ctx.Ball.Position;
 
@@ -528,19 +533,20 @@ namespace FootballSim.Engine.Systems
                 string desc = $"{ctx.MatchMinute}' THROW-IN — {throwTeam}";
 
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.ThrowIn,
-                    primary:   lastToucher,
+                    type: MatchEventType.ThrowIn,
+                    primary: lastToucher,
                     secondary: -1,
-                    teamId:    1 - lastTeam,   // team that gets the throw
-                    pos:       ballPos,
+                    teamId: 1 - lastTeam,   // team that gets the throw
+                    pos: ballPos,
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
+                ctx.Ball.IsOutOfPlay = false;   // FIX: consume flag
                 return;
             }
 
             // Top or bottom byline
-            bool topByline    = ballPos.Y <= PhysicsConstants.PITCH_TOP;
+            bool topByline = ballPos.Y <= PhysicsConstants.PITCH_TOP;
             bool bottomByline = ballPos.Y >= PhysicsConstants.PITCH_BOTTOM;
 
             if (!topByline && !bottomByline) return;
@@ -558,35 +564,37 @@ namespace FootballSim.Engine.Systems
             {
                 // Attacking team last touched → goal kick for defenders
                 int defendingTeam = 1 - lastTeam;
-                string defLabel   = defendingTeam == 0 ? "Home" : "Away";
+                string defLabel = defendingTeam == 0 ? "Home" : "Away";
                 string desc = $"{ctx.MatchMinute}' GOAL KICK — {defLabel}";
 
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.GoalKick,
-                    primary:   lastToucher,
+                    type: MatchEventType.GoalKick,
+                    primary: lastToucher,
                     secondary: -1,
-                    teamId:    defendingTeam,
-                    pos:       ballPos,
+                    teamId: defendingTeam,
+                    pos: ballPos,
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
+                ctx.Ball.IsOutOfPlay = false;   // FIX
             }
             else
             {
                 // Defending team last touched → corner for attackers
                 int attackingTeam = 1 - lastTeam;
-                string atkLabel   = attackingTeam == 0 ? "Home" : "Away";
+                string atkLabel = attackingTeam == 0 ? "Home" : "Away";
                 string desc = $"{ctx.MatchMinute}' CORNER — {atkLabel}";
 
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.CornerKick,
-                    primary:   lastToucher,
+                    type: MatchEventType.CornerKick,
+                    primary: lastToucher,
                     secondary: -1,
-                    teamId:    attackingTeam,
-                    pos:       ballPos,
+                    teamId: attackingTeam,
+                    pos: ballPos,
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
+                ctx.Ball.IsOutOfPlay = false;   // FIX
             }
         }
 
@@ -600,13 +608,13 @@ namespace FootballSim.Engine.Systems
             if (ctx.Ball.IsOutOfPlay && !ctx.Ball.ShotOnTarget &&
                 ctx.Ball.LastTouchedBy >= 0)
             {
-                int shooterId   = ctx.Ball.LastTouchedBy;
+                int shooterId = ctx.Ball.LastTouchedBy;
                 int shooterTeam = shooterId <= 10 ? 0 : 1;
                 string teamLabel = shooterTeam == 0 ? "Home" : "Away";
 
                 // Approximate xG from speed — same proxy used in CollisionSystem
-                float spd   = ctx.Ball.Velocity.Length();
-                float xG    = MathUtil.Lerp(0.02f, 0.30f,
+                float spd = ctx.Ball.Velocity.Length();
+                float xG = MathUtil.Lerp(0.02f, 0.30f,
                                 MathUtil.Clamp01(spd / PhysicsConstants.BALL_SHOT_SPEED_POWER));
 
                 string desc = $"{ctx.MatchMinute}' SHOT OFF TARGET — " +
@@ -614,14 +622,14 @@ namespace FootballSim.Engine.Systems
                               $"| xG: {xG:F2}";
 
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.ShotOffTarget,
-                    primary:   shooterId,
+                    type: MatchEventType.ShotOffTarget,
+                    primary: shooterId,
                     secondary: -1,
-                    teamId:    shooterTeam,
-                    pos:       ctx.Players[shooterId].Position,
-                    ef:        xG,
-                    eb:        false,
-                    desc:      desc));
+                    teamId: shooterTeam,
+                    pos: ctx.Players[shooterId].Position,
+                    ef: xG,
+                    eb: false,
+                    desc: desc));
 
                 LogDebug(ctx, desc);
             }
@@ -656,8 +664,8 @@ namespace FootballSim.Engine.Systems
 
             // Guard: don't re-emit if we already emitted this possession cycle
             // We use _lastPasserId reset as the flag — clear it after emitting
-            int   passerId   = _lastPasserId;
-            int   passerTeam = _lastPassTeam;
+            int passerId = _lastPasserId;
+            int passerTeam = _lastPassTeam;
             _lastPasserId = -1;
             _lastPassTeam = -1;
 
@@ -673,9 +681,9 @@ namespace FootballSim.Engine.Systems
 
             bool isLongBall = passDist >= LONG_BALL_DISTANCE;
 
-            string teamLabel     = passerTeam == 0 ? "Home" : "Away";
+            string teamLabel = passerTeam == 0 ? "Home" : "Away";
             string progressLabel = progressive ? " | progressive" : "";
-            string longLabel     = isLongBall ? " | long ball" : "";
+            string longLabel = isLongBall ? " | long ball" : "";
 
             string desc = $"{ctx.MatchMinute}' PASS — " +
                           $"P{ctx.Players[passerId].ShirtNumber} [{teamLabel}] → " +
@@ -683,40 +691,40 @@ namespace FootballSim.Engine.Systems
                           $"| dist: {passDist:F0}{progressLabel}{longLabel}";
 
             ctx.EventsThisTick.Add(BuildEvent(ctx,
-                type:      MatchEventType.PassCompleted,
-                primary:   passerId,
+                type: MatchEventType.PassCompleted,
+                primary: passerId,
                 secondary: ownerId,
-                teamId:    passerTeam,
-                pos:       ctx.Players[passerId].Position,
-                ef:        passDist,
-                eb:        progressive,
-                desc:      desc));
+                teamId: passerTeam,
+                pos: ctx.Players[passerId].Position,
+                ef: passDist,
+                eb: progressive,
+                desc: desc));
 
             // Emit long ball sub-event
             if (isLongBall)
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.LongBallAttempt,
-                    primary:   passerId,
+                    type: MatchEventType.LongBallAttempt,
+                    primary: passerId,
                     secondary: ownerId,
-                    teamId:    passerTeam,
-                    pos:       ctx.Players[passerId].Position,
-                    ef:        passDist,
-                    eb:        progressive,
-                    desc:      $"{ctx.MatchMinute}' LONG BALL — " +
+                    teamId: passerTeam,
+                    pos: ctx.Players[passerId].Position,
+                    ef: passDist,
+                    eb: progressive,
+                    desc: $"{ctx.MatchMinute}' LONG BALL — " +
                                $"P{ctx.Players[passerId].ShirtNumber} [{teamLabel}] " +
                                $"| dist: {passDist:F0}"));
 
             // If this pass created a significant chance, emit KeyPass
             if (_lastShotXG >= KEY_PASS_XG_THRESHOLD)
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
-                    type:      MatchEventType.KeyPass,
-                    primary:   passerId,
+                    type: MatchEventType.KeyPass,
+                    primary: passerId,
                     secondary: ownerId,
-                    teamId:    passerTeam,
-                    pos:       ctx.Players[passerId].Position,
-                    ef:        _lastShotXG,
-                    eb:        true,
-                    desc:      $"{ctx.MatchMinute}' KEY PASS — " +
+                    teamId: passerTeam,
+                    pos: ctx.Players[passerId].Position,
+                    ef: _lastShotXG,
+                    eb: true,
+                    desc: $"{ctx.MatchMinute}' KEY PASS — " +
                                $"P{ctx.Players[passerId].ShirtNumber} [{teamLabel}]" +
                                $" | xG created: {_lastShotXG:F2}"));
 
@@ -733,6 +741,22 @@ namespace FootballSim.Engine.Systems
         {
             if (ctx.Phase == MatchPhase.FullTime ||
                 ctx.Phase == MatchPhase.HalfTime) return;
+
+            // Kickoff → OpenPlay transition
+            if (ctx.Phase == MatchPhase.Kickoff)
+            {
+                Vec2 centre = new Vec2(
+                    PhysicsConstants.PITCH_WIDTH * 0.5f,
+                    PhysicsConstants.PITCH_HEIGHT * 0.5f
+                );
+
+                float distFromCentre = ctx.Ball.Position.DistanceTo(centre);
+
+                if (distFromCentre > KICKOFF_OPEN_PLAY_THRESHOLD)
+                    ctx.Phase = MatchPhase.OpenPlay;
+
+                return;
+            }
 
             if (ctx.Tick == HALF_TIME_TICK)
             {
@@ -769,7 +793,7 @@ namespace FootballSim.Engine.Systems
         {
             _lastPasserId = passerId;
             _lastPassTeam = passerTeam;
-            _lastShotXG   = 0f; // reset — no shot pending
+            _lastShotXG = 0f; // reset — no shot pending
         }
 
         /// <summary>
@@ -778,8 +802,8 @@ namespace FootballSim.Engine.Systems
         /// </summary>
         public static void NotifyShotLaunched(float xG)
         {
-            _lastShotXG       = xG;
-            _shotWasInFlight  = true;
+            _lastShotXG = xG;
+            _shotWasInFlight = true;
         }
 
         /// <summary>
@@ -788,27 +812,27 @@ namespace FootballSim.Engine.Systems
         /// </summary>
         public static MatchEvent BuildEvent(MatchContext ctx,
                                              MatchEventType type,
-                                             int    primary,
-                                             int    secondary,
-                                             int    teamId,
-                                             Vec2   pos,
-                                             float  ef,
-                                             bool   eb,
+                                             int primary,
+                                             int secondary,
+                                             int teamId,
+                                             Vec2 pos,
+                                             float ef,
+                                             bool eb,
                                              string desc)
         {
             return new MatchEvent
             {
-                Tick              = ctx.Tick,
-                MatchSecond       = ctx.MatchSecond,
-                MatchMinute       = ctx.MatchMinute,
-                Type              = type,
-                PrimaryPlayerId   = primary,
+                Tick = ctx.Tick,
+                MatchSecond = ctx.MatchSecond,
+                MatchMinute = ctx.MatchMinute,
+                Type = type,
+                PrimaryPlayerId = primary,
                 SecondaryPlayerId = secondary,
-                TeamId            = teamId,
-                Position          = pos,
-                ExtraFloat        = ef,
-                ExtraBool         = eb,
-                Description       = desc,
+                TeamId = teamId,
+                Position = pos,
+                ExtraFloat = ef,
+                ExtraBool = eb,
+                Description = desc,
             };
         }
 
@@ -819,7 +843,7 @@ namespace FootballSim.Engine.Systems
         private static bool IsInPenaltyBox(Vec2 pos, int defendingTeam)
         {
             float centreX = PhysicsConstants.PITCH_WIDTH * 0.5f;
-            float halfW   = PhysicsConstants.PENALTY_AREA_HALF_WIDTH;
+            float halfW = PhysicsConstants.PENALTY_AREA_HALF_WIDTH;
 
             bool xInBox = pos.X >= centreX - halfW && pos.X <= centreX + halfW;
             if (!xInBox) return false;

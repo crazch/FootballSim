@@ -222,11 +222,12 @@ func _load_team_data() -> void:
 		print("[MatchView] GameState empty — using test teams.")
 	_home_team  = _build_test_team_home()
 	_away_team  = _build_test_team_away()
-	_match_seed = 42
+	_match_seed = 41
 
 # ── Simulation ────────────────────────────────────────────────────────────────
 
 func _begin_simulation() -> void:
+	Bridge.SetDebugFlags(false, -1)   # -1 = all players, no filter
 	_state = MatchState.SIMULATING
 	_set_loading_visible(true)
 
@@ -250,6 +251,7 @@ func _run_simulation_thread() -> void:
 
 
 func _on_simulation_complete() -> void:
+	Bridge.DumpTickRange(1030, 1200, 5)
 	# Back on the main thread.
 	var err : String = Bridge.GetLastError()
 	if err != "":
@@ -257,7 +259,6 @@ func _on_simulation_complete() -> void:
 		if loading_label != null:
 			loading_label.text = "Error: " + err
 		return
-
 	if DEBUG:
 		print("[MatchView] Simulation complete. Frames=%d Score=%d-%d" % [
 			Bridge.GetTotalFrames(),
