@@ -217,6 +217,9 @@ namespace FootballSim.Engine.Systems
             if (scorerTeam == 0) ctx.HomeScore++;
             else ctx.AwayScore++;
 
+            // Conceding team kicks off next
+            ctx.KickoffTeam = scorerTeam == 0 ? 1 : 0;
+
             // Build assist info
             int assisterId = -1;
             if (!isOwn && _lastPasserId >= 0 &&

@@ -131,6 +131,12 @@ namespace FootballSim.Engine.Models
         /// <summary>Away team goals. Incremented by EventSystem on Goal event (TeamId == 1).</summary>
         public int AwayScore;
 
+        /// <summary>
+        /// Which team kicks off next. 0 = home, 1 = away.
+        /// After goal, conceding team kicks off.
+        /// </summary>
+        public int KickoffTeam = 0;
+
         // ── Possession Counters ───────────────────────────────────────────────
 
         /// <summary>
@@ -181,10 +187,10 @@ namespace FootballSim.Engine.Models
         {
             HomeTeam = homeTeam;
             AwayTeam = awayTeam;
-            Players  = new PlayerState[22];
+            Players = new PlayerState[22];
             EventsThisTick = new List<MatchEvent>(8); // typical: 0–3 events per tick
-            Phase    = MatchPhase.PreKickoff;
-            Tick     = 0;
+            Phase = MatchPhase.PreKickoff;
+            Tick = 0;
             MatchSecond = 0f;
             MatchMinute = 0;
             HomeScore = 0;

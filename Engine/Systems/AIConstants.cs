@@ -97,7 +97,7 @@ namespace FootballSim.Engine.Systems
         /// At TacticsInput.ShootingThreshold = 0.0: shoot at any xG >= 0.02.
         /// These two values are lerped by ShootingThreshold.
         /// </summary>
-        public static readonly float XG_THRESHOLD_LOW  = 0.02f;  // permissive (ShootingThreshold=0)
+        public static readonly float XG_THRESHOLD_LOW = 0.02f;  // permissive (ShootingThreshold=0)
         public static readonly float XG_THRESHOLD_HIGH = 0.25f;  // strict    (ShootingThreshold=1)
 
         /// <summary>
@@ -324,7 +324,7 @@ namespace FootballSim.Engine.Systems
         /// At Strict: effectiveBias = roleBias (100% role).
         /// At Expressive (1.0): effectiveBias = playerAttribute (100% instinct).
         /// </summary>
-        public static readonly float FREEDOM_ROLE_WEIGHT_AT_STRICT     = 1.0f;
+        public static readonly float FREEDOM_ROLE_WEIGHT_AT_STRICT = 1.0f;
         public static readonly float FREEDOM_ROLE_WEIGHT_AT_EXPRESSIVE = 0.0f;
 
         // =====================================================================
@@ -338,6 +338,48 @@ namespace FootballSim.Engine.Systems
         /// 2 ticks = 0.2 seconds. Short but enough for physics to process.
         /// </summary>
         public static readonly int ACTION_LOCK_AFTER_KICK_TICKS = 2;
+
+        // =====================================================================
+        // BALL HOLD — MINIMUM TICKS BEFORE PASSING IS ALLOWED
+        // =====================================================================
+
+        /// <summary>
+        /// Minimum ticks a CB or BPD must hold the ball before passing.
+        /// 10 ticks = 1.0 second. Centre backs are deliberate on the ball.
+        /// </summary>
+        public static readonly int HOLD_TICKS_DEFENDER = 10;
+
+        /// <summary>
+        /// Minimum ticks a CDM or DLP must hold before passing.
+        /// 8 ticks = 0.8 seconds. Holding midfielders recycle patiently.
+        /// </summary>
+        public static readonly int HOLD_TICKS_DM = 8;
+
+        /// <summary>
+        /// Minimum ticks a CM, BBM, WB must hold before passing.
+        /// 5 ticks = 0.5 seconds.
+        /// </summary>
+        public static readonly int HOLD_TICKS_MID = 5;
+
+        /// <summary>
+        /// Minimum ticks a winger, AM, CF, ST must hold before passing.
+        /// 3 ticks = 0.3 seconds. Attackers play quickly.
+        /// </summary>
+        public static readonly int HOLD_TICKS_ATTACKER = 3;
+
+        /// <summary>
+        /// GK and SK hold longest — they survey the pitch before distributing.
+        /// 12 ticks = 1.2 seconds.
+        /// </summary>
+        public static readonly int HOLD_TICKS_GK = 12;
+
+        /// <summary>
+        /// When true, long passes (dist > PASS_LONG_THRESHOLD) are completely
+        /// disabled in DecisionSystem.ScorePass(). All passes must be short or medium.
+        /// Set true during debugging to isolate ping-pong and interception bugs
+        /// from long-ball fling issues.
+        /// </summary>
+        public static readonly bool DISABLE_LONG_PASS = true;
 
         /// <summary>
         /// Minimum ticks a player must remain in Celebrating before returning to normal.

@@ -141,6 +141,14 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public int DecisionCooldown;
 
+        /// <summary>
+        /// How many consecutive ticks this player has held the ball.
+        /// Incremented by PlayerAI each tick the player HasBall.
+        /// Reset to 0 by PlayerAI when the player loses the ball.
+        /// Used to enforce a minimum hold time before passing is allowed.
+        /// </summary>
+        public int BallHoldTicks;
+
         // ── Match Status ──────────────────────────────────────────────────────
 
         /// <summary>

@@ -576,6 +576,10 @@ namespace FootballSim.Engine.Systems
             if (dist > AIConstants.PASS_MAX_DISTANCE)
                 return new PassCandidate { ReceiverId = -1, Score = 0f };
 
+            // Disable long passes during debug mode
+            if (AIConstants.DISABLE_LONG_PASS && dist > AIConstants.PASS_LONG_THRESHOLD)
+                return new PassCandidate { ReceiverId = -1, Score = 0f };
+
             // Base score from passing ability
             float abilityFactor = player.PassingAbility;
 
@@ -591,7 +595,7 @@ namespace FootballSim.Engine.Systems
             if (isShort)
             {
                 // Short passes: possession_focus rewards these heavily
-                distScore = 0.7f + tactics.PossessionFocus * 0.3f;
+                distScore = 0.5f + tactics.PossessionFocus * 0.3f;
             }
             else if (isLong)
             {
@@ -602,7 +606,7 @@ namespace FootballSim.Engine.Systems
             else
             {
                 // Medium range: flat moderate score
-                distScore = 0.55f;
+                distScore = 0.5f;
             }
 
             // ── Progressive bonus ─────────────────────────────────────────────
@@ -724,7 +728,7 @@ namespace FootballSim.Engine.Systems
         {
             float senderPressure = ComputeSenderPressure(ref player, ctx);
             // Only hold if not immediately under pressure
-            if (senderPressure < AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
+            if (senderPressure > AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
                 return 0f; // defender too close — must act
 
             // Normalise pressure to [0,1] — higher pressure = lower hold score

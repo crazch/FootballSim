@@ -251,7 +251,7 @@ func _run_simulation_thread() -> void:
 
 
 func _on_simulation_complete() -> void:
-	Bridge.DumpTickRange(1030, 1200, 5)
+	Bridge.DumpTickRange(32300, 32340, 8)
 	# Back on the main thread.
 	var err : String = Bridge.GetLastError()
 	if err != "":

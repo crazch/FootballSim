@@ -128,6 +128,12 @@ namespace FootballSim.Engine.Systems
 
         private static void ProcessPlayer(ref PlayerState player, MatchContext ctx)
         {
+            // ── 0. Ball hold tracking ──────────────────────────────────────────
+            if (player.HasBall)
+                player.BallHoldTicks++;
+            else
+                player.BallHoldTicks = 0;
+
             // ── 1. Action lock check ───────────────────────────────────────────
             // After kicking, the player is locked briefly.
             // After celebrating, they are locked until celebration ends.
@@ -163,7 +169,7 @@ namespace FootballSim.Engine.Systems
 
             // ── Ball state determines which evaluator to call ──────────────────
             bool teamHasBall = TeamHasBall(player.TeamId, ctx);
-            bool ballIsLoose  = ctx.Ball.Phase == BallPhase.Loose;
+            bool ballIsLoose = ctx.Ball.Phase == BallPhase.Loose;
 
             if (player.HasBall)
                 return DecisionSystem.EvaluateWithBall(ref player, ctx);
@@ -182,7 +188,7 @@ namespace FootballSim.Engine.Systems
 
         private static void ApplyPlan(ref PlayerState player, ActionPlan plan, MatchContext ctx)
         {
-            player.Action         = plan.Action;
+            player.Action = plan.Action;
             player.TargetPosition = plan.TargetPosition;
 
             ApplySprintFlag(ref player, ctx);
@@ -194,32 +200,36 @@ namespace FootballSim.Engine.Systems
                     if (player.HasBall && plan.PassReceiverId >= 0 &&
                         plan.PassReceiverId <= 21)
                     {
+                        // Enforce minimum ball-hold time before passing is allowed.
+                        int minHold = GetMinHoldTicks(player.Role);
+                        if (player.BallHoldTicks < minHold)
+                        {
+                            // Not held long enough — force Hold action instead.
+                            player.Action = PlayerAction.Holding;
+                            break;
+                        }
+
                         BallSystem.LaunchPass(ctx, player.PlayerId,
                             plan.PassReceiverId, plan.PassSpeed, plan.PassHeight);
-
-                        // Notify EventSystem so it can emit PassCompleted on receipt
                         EventSystem.NotifyPassLaunched(player.PlayerId, player.TeamId);
-
-                        // Lock this player briefly after passing
                         player.DecisionCooldown = AIConstants.ACTION_LOCK_AFTER_KICK_TICKS;
-                        player.Action           = PlayerAction.Passing;
+                        player.Action = PlayerAction.Passing;
 
                         if (DEBUG && (DEBUG_PLAYER_ID < 0 ||
                                       DEBUG_PLAYER_ID == player.PlayerId))
                             Console.WriteLine(
                                 $"[PlayerAI] Tick {ctx.Tick}: P{player.PlayerId} " +
                                 $"PASSES to P{plan.PassReceiverId} " +
-                                $"speed={plan.PassSpeed:F1} height={plan.PassHeight:F2} " +
-                                $"score={plan.Score:F3}");
+                                $"held={player.BallHoldTicks} minHold={minHold} " +
+                                $"speed={plan.PassSpeed:F1} score={plan.Score:F3}");
                     }
                     break;
-
                 case PlayerAction.Shooting:
                     if (player.HasBall)
                     {
                         // Choose shot type: power vs placed based on distance and ability
                         float distToGoal = player.Position.DistanceTo(plan.ShotTargetPos);
-                        float shotSpeed  = SelectShotSpeed(ref player, distToGoal);
+                        float shotSpeed = SelectShotSpeed(ref player, distToGoal);
 
                         BallSystem.LaunchShot(ctx, player.PlayerId,
                             plan.ShotTargetPos, shotSpeed);
@@ -228,7 +238,7 @@ namespace FootballSim.Engine.Systems
                         EventSystem.NotifyShotLaunched(plan.XG);
 
                         player.DecisionCooldown = AIConstants.ACTION_LOCK_AFTER_KICK_TICKS;
-                        player.Action           = PlayerAction.Shooting;
+                        player.Action = PlayerAction.Shooting;
 
                         if (DEBUG && (DEBUG_PLAYER_ID < 0 ||
                                       DEBUG_PLAYER_ID == player.PlayerId))
@@ -248,7 +258,7 @@ namespace FootballSim.Engine.Systems
                             deliveryPoint, PhysicsConstants.BALL_CROSS_SPEED);
 
                         player.DecisionCooldown = AIConstants.ACTION_LOCK_AFTER_KICK_TICKS;
-                        player.Action           = PlayerAction.Crossing;
+                        player.Action = PlayerAction.Crossing;
 
                         if (DEBUG && (DEBUG_PLAYER_ID < 0 ||
                                       DEBUG_PLAYER_ID == player.PlayerId))
@@ -262,7 +272,7 @@ namespace FootballSim.Engine.Systems
                 case PlayerAction.Celebrating:
                     // Lock for full celebration duration
                     player.DecisionCooldown = AIConstants.ACTION_LOCK_CELEBRATE_TICKS;
-                    player.IsSprinting      = false;
+                    player.IsSprinting = false;
                     break;
             }
 
@@ -384,7 +394,7 @@ namespace FootballSim.Engine.Systems
 
             // Aim for the far post area when crossing from the right, near post from left
             float targetX = isRightSide
-                ? PhysicsConstants.HOME_GOAL_LEFT_X  + 30f  // far post side
+                ? PhysicsConstants.HOME_GOAL_LEFT_X + 30f  // far post side
                 : PhysicsConstants.HOME_GOAL_RIGHT_X - 30f; // near post side
 
             float targetY = attacksDown
@@ -392,6 +402,46 @@ namespace FootballSim.Engine.Systems
                 : PhysicsConstants.PENALTY_AREA_DEPTH * 0.4f;
 
             return new Vec2(targetX, targetY);
+        }
+
+        /// <summary>
+        /// Returns the minimum number of ticks a player of this role must hold the ball
+        /// before passing is allowed. Enforces realistic decision time per position.
+        /// </summary>
+        private static int GetMinHoldTicks(PlayerRole role)
+        {
+            switch (role)
+            {
+                case PlayerRole.GK:
+                case PlayerRole.SK:
+                    return AIConstants.HOLD_TICKS_GK;
+
+                case PlayerRole.CB:
+                case PlayerRole.BPD:
+                    return AIConstants.HOLD_TICKS_DEFENDER;
+
+                case PlayerRole.CDM:
+                case PlayerRole.DLP:
+                    return AIConstants.HOLD_TICKS_DM;
+
+                case PlayerRole.WB:
+                case PlayerRole.RB:
+                case PlayerRole.LB:
+                case PlayerRole.CM:
+                case PlayerRole.BBM:
+                    return AIConstants.HOLD_TICKS_MID;
+
+                case PlayerRole.AM:
+                case PlayerRole.IW:
+                case PlayerRole.WF:
+                case PlayerRole.CF:
+                case PlayerRole.ST:
+                case PlayerRole.PF:
+                    return AIConstants.HOLD_TICKS_ATTACKER;
+
+                default:
+                    return AIConstants.HOLD_TICKS_MID;
+            }
         }
     }
 }

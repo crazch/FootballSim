@@ -192,14 +192,14 @@ namespace FootballSim.Engine.Core
             // ── 1. Build MatchContext ──────────────────────────────────────────
             var ctx = new MatchContext(homeTeam, awayTeam);
             ctx.RandomSeed = seed;
-            ctx.Random     = new Random(seed);
-            ctx.Phase      = MatchPhase.Kickoff;
+            ctx.Random = new Random(seed);
+            ctx.Phase = MatchPhase.Kickoff;
 
             // ── 2. Initialise all players from TeamData + FormationData ────────
             InitialisePlayers(ctx);
 
             // ── 3. Place ball at kickoff ───────────────────────────────────────
-            InitialiseBall(ctx);
+            SetupKickoffPositions(ctx, 0);
 
             // ── 4. Stagger player decision cooldowns ──────────────────────────
             PlayerAI.InitialiseMatch(ctx);
@@ -211,10 +211,10 @@ namespace FootballSim.Engine.Core
             // ── 6. Allocate replay ────────────────────────────────────────────
             var replay = new MatchReplay
             {
-                RandomSeed    = seed,
-                HomeTeamName  = homeTeam.Name,
-                AwayTeamName  = awayTeam.Name,
-                Frames        = new List<ReplayFrame>(EventSystem.FULL_TIME_TICK),
+                RandomSeed = seed,
+                HomeTeamName = homeTeam.Name,
+                AwayTeamName = awayTeam.Name,
+                Frames = new List<ReplayFrame>(EventSystem.FULL_TIME_TICK),
             };
 
             // ── 7. Main tick loop ─────────────────────────────────────────────
@@ -237,12 +237,12 @@ namespace FootballSim.Engine.Core
             // ── 8. Finalise stats ──────────────────────────────────────────────
             aggregator.Finalise(ctx);
 
-            replay.TotalTicks      = ctx.Tick;
-            replay.FinalHomeScore  = ctx.HomeScore;
-            replay.FinalAwayScore  = ctx.AwayScore;
-            replay.HomeStats       = aggregator.HomeStats;
-            replay.AwayStats       = aggregator.AwayStats;
-            replay.PlayerStats     = aggregator.PlayerStats;
+            replay.TotalTicks = ctx.Tick;
+            replay.FinalHomeScore = ctx.HomeScore;
+            replay.FinalAwayScore = ctx.AwayScore;
+            replay.HomeStats = aggregator.HomeStats;
+            replay.AwayStats = aggregator.AwayStats;
+            replay.PlayerStats = aggregator.PlayerStats;
 
             if (DEBUG)
                 Console.WriteLine(
@@ -324,7 +324,7 @@ namespace FootballSim.Engine.Core
             if (!_halftimePauseStarted)
             {
                 _halftimePauseStarted = true;
-                _halftimePauseTick    = ctx.Tick;
+                _halftimePauseTick = ctx.Tick;
                 if (DEBUG) Console.WriteLine($"[MatchEngine] Half-time at tick {ctx.Tick}.");
             }
 
@@ -350,8 +350,8 @@ namespace FootballSim.Engine.Core
 
         // Pause state — module-level state for halftime (reset between matches)
         private static bool _halftimePauseStarted = false;
-        private static int  _halftimePauseTick    = 0;
-        private const  int  HALFTIME_PAUSE_TICKS  = 10;
+        private static int _halftimePauseTick = 0;
+        private const int HALFTIME_PAUSE_TICKS = 10;
 
         /// <summary>
         /// Handles the brief pause after a goal before kickoff restarts.
@@ -361,7 +361,7 @@ namespace FootballSim.Engine.Core
             if (!_goalPauseStarted)
             {
                 _goalPauseStarted = true;
-                _goalPauseTick    = ctx.Tick;
+                _goalPauseTick = ctx.Tick;
                 // Set all outfield players to Celebrating
                 for (int i = 0; i < 22; i++)
                     if (ctx.Players[i].IsActive)
@@ -371,15 +371,15 @@ namespace FootballSim.Engine.Core
             if (ctx.Tick - _goalPauseTick >= GOAL_PAUSE_TICKS)
             {
                 // Reset to kickoff positions
-                InitialiseBall(ctx);
-                ctx.Phase         = MatchPhase.Kickoff;
+                SetupKickoffPositions(ctx, ctx.KickoffTeam);
+                ctx.Phase = MatchPhase.Kickoff;
                 _goalPauseStarted = false;
             }
         }
 
         private static bool _goalPauseStarted = false;
-        private static int  _goalPauseTick    = 0;
-        private const  int  GOAL_PAUSE_TICKS  = 20; // 2 seconds celebration
+        private static int _goalPauseTick = 0;
+        private const int GOAL_PAUSE_TICKS = 20; // 2 seconds celebration
 
         // ── Initialisation helpers ────────────────────────────────────────────
 
@@ -429,29 +429,29 @@ namespace FootballSim.Engine.Core
 
                 ctx.Players[globalIndex] = new PlayerState
                 {
-                    PlayerId          = globalIndex,
-                    TeamId            = teamId,
-                    ShirtNumber       = pd.ShirtNumber,
-                    Role              = fSlot.Role,
-                    Position          = anchor,
-                    TargetPosition    = anchor,
-                    FormationAnchor   = anchor,
-                    Velocity          = Vec2.Zero,
-                    BaseSpeed         = pd.BaseSpeed,
-                    Stamina           = 1.0f,
-                    StaminaAttribute  = pd.StaminaAttribute,
-                    PassingAbility    = pd.PassingAbility,
-                    ShootingAbility   = pd.ShootingAbility,
-                    DribblingAbility  = pd.DribblingAbility,
-                    DefendingAbility  = pd.DefendingAbility,
-                    Reactions         = pd.Reactions,
-                    Ego               = pd.Ego,
-                    IsActive          = true,
-                    Action            = PlayerAction.WalkingToAnchor,
-                    DecisionCooldown  = 0,
-                    HasBall           = false,
-                    IsSprinting       = false,
-                    Speed             = pd.BaseSpeed,
+                    PlayerId = globalIndex,
+                    TeamId = teamId,
+                    ShirtNumber = pd.ShirtNumber,
+                    Role = fSlot.Role,
+                    Position = anchor,
+                    TargetPosition = anchor,
+                    FormationAnchor = anchor,
+                    Velocity = Vec2.Zero,
+                    BaseSpeed = pd.BaseSpeed,
+                    Stamina = 1.0f,
+                    StaminaAttribute = pd.StaminaAttribute,
+                    PassingAbility = pd.PassingAbility,
+                    ShootingAbility = pd.ShootingAbility,
+                    DribblingAbility = pd.DribblingAbility,
+                    DefendingAbility = pd.DefendingAbility,
+                    Reactions = pd.Reactions,
+                    Ego = pd.Ego,
+                    IsActive = true,
+                    Action = PlayerAction.WalkingToAnchor,
+                    DecisionCooldown = 0,
+                    HasBall = false,
+                    IsSprinting = false,
+                    Speed = pd.BaseSpeed,
                 };
             }
         }
@@ -461,7 +461,7 @@ namespace FootballSim.Engine.Core
         /// </summary>
         private static void InitialiseBall(MatchContext ctx)
         {
-            float centreX = PhysicsConstants.PITCH_WIDTH  * 0.5f;
+            float centreX = PhysicsConstants.PITCH_WIDTH * 0.5f;
             float centreY = PhysicsConstants.PITCH_HEIGHT * 0.5f;
 
             // Find the home striker (last slot, typically ST/PF)
@@ -478,23 +478,147 @@ namespace FootballSim.Engine.Core
 
             ctx.Ball = new BallState
             {
-                Position          = new Vec2(centreX, centreY),
-                Velocity          = Vec2.Zero,
-                Phase             = BallPhase.Owned,
-                OwnerId           = kickerIndex,
-                LastTouchedBy     = kickerIndex,
-                PassTargetId      = -1,
-                IsShot            = false,
-                ShotOnTarget      = false,
-                Height            = 0f,
-                LooseTicks        = 0,
-                IsOutOfPlay       = false,
+                Position = new Vec2(centreX, centreY),
+                Velocity = Vec2.Zero,
+                Phase = BallPhase.Owned,
+                OwnerId = kickerIndex,
+                LastTouchedBy = kickerIndex,
+                PassTargetId = -1,
+                IsShot = false,
+                ShotOnTarget = false,
+                Height = 0f,
+                LooseTicks = 0,
+                IsOutOfPlay = false,
                 OutOfPlayCausedBy = -1,
             };
 
             ctx.Players[kickerIndex].HasBall = true;
         }
 
+        /// <summary>
+        /// Overrides player positions for legal kickoff.
+        /// All players are clamped to their own half.
+        /// The kickoff team's best forward is placed at the centre spot with the ball.
+        /// A second player from the kickoff team is placed just behind the kicker.
+        /// kickoffTeam: 0 = home kicks off, 1 = away kicks off.
+        /// </summary>
+        private static void SetupKickoffPositions(MatchContext ctx, int kickoffTeam)
+        {
+            float pitchW = PhysicsConstants.PITCH_WIDTH;
+            float pitchH = PhysicsConstants.PITCH_HEIGHT;
+            float centreX = pitchW * 0.5f;
+            float centreY = pitchH * 0.5f;
+
+            // ── 1. Clamp every player to their own half ───────────────────────────
+            // Home attacks toward Y=680 (bottom), so home own half = top (Y < halfY).
+            // Away attacks toward Y=0   (top),    so away own half = bottom (Y > halfY).
+            for (int i = 0; i < 22; i++)
+            {
+                ref PlayerState p = ref ctx.Players[i];   // ref — writes go to actual array
+                if (!p.IsActive) continue;
+
+                float x = p.FormationAnchor.X;
+                float y = p.FormationAnchor.Y;
+
+                if (p.TeamId == 0)
+                    y = Math.Min(y, centreY - 10f);   // home: clamp to Y <= 330
+                else
+                    y = Math.Max(y, centreY + 10f);   // away: clamp to Y >= 350
+
+                var pos = new Vec2(x, y);
+                p.Position = pos;
+                p.TargetPosition = pos;
+                p.Velocity = Vec2.Zero;
+                p.HasBall = false;
+            }
+
+            // ── 2. Choose kicker from kickoff team ───────────────────────────────
+            // Priority: ST → CF → PF → AM → CM → BBM → slot 9 fallback
+            int start = kickoffTeam == 0 ? 0 : 11;
+            int end = start + 11;
+            int kicker = start + 9; // fallback
+
+            PlayerRole[] kickerPriority =
+            {
+        PlayerRole.ST, PlayerRole.CF, PlayerRole.PF,
+        PlayerRole.AM, PlayerRole.CM, PlayerRole.BBM
+    };
+
+            foreach (PlayerRole preferred in kickerPriority)
+            {
+                bool found = false;
+                for (int i = start; i < end; i++)
+                {
+                    if (ctx.Players[i].Role == preferred && ctx.Players[i].IsActive)
+                    {
+                        kicker = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+
+            // ── 3. Choose second player — next best forward/mid, not the kicker ──
+            int second = -1;
+            foreach (PlayerRole preferred in kickerPriority)
+            {
+                for (int i = start; i < end; i++)
+                {
+                    if (i == kicker) continue;
+                    if (ctx.Players[i].Role == preferred && ctx.Players[i].IsActive)
+                    {
+                        second = i;
+                        break;
+                    }
+                }
+                if (second >= 0) break;
+            }
+
+            // ── 4. Place kicker at exact centre spot ─────────────────────────────
+            {
+                ref PlayerState k = ref ctx.Players[kicker];
+                var centre = new Vec2(centreX, centreY);
+                k.Position = centre;
+                k.TargetPosition = centre;
+                k.Velocity = Vec2.Zero;
+                k.HasBall = true;
+            }
+
+            // ── 5. Place second player just behind kicker (toward own goal) ───────
+            if (second >= 0)
+            {
+                ref PlayerState s = ref ctx.Players[second];
+                // Home attacks down → "behind" = lower Y (toward home goal at top)
+                // Away attacks up   → "behind" = higher Y (toward away goal at bottom)
+                float behindY = kickoffTeam == 0
+                    ? centreY - 20f   // home: slightly above centre
+                    : centreY + 20f;  // away: slightly below centre
+
+                var behindPos = new Vec2(centreX, behindY);
+                s.Position = behindPos;
+                s.TargetPosition = behindPos;
+                s.Velocity = Vec2.Zero;
+                s.HasBall = false;
+            }
+
+            // ── 6. Place ball at centre spot owned by kicker ─────────────────────
+            ctx.Ball = new BallState
+            {
+                Position = new Vec2(centreX, centreY),
+                Velocity = Vec2.Zero,
+                Phase = BallPhase.Owned,
+                OwnerId = kicker,
+                LastTouchedBy = kicker,
+                PassTargetId = -1,
+                IsShot = false,
+                ShotOnTarget = false,
+                Height = 0f,
+                LooseTicks = 0,
+                IsOutOfPlay = false,
+                OutOfPlayCausedBy = -1,
+            };
+        }
         /// <summary>
         /// Flips FormationAnchor Y positions at half-time so each team defends the other end.
         /// Also flips current Position and TargetPosition so transition is smooth.
@@ -513,9 +637,9 @@ namespace FootballSim.Engine.Core
                 );
 
                 // Teleport position and target to flipped anchor for clean half-time reset
-                ctx.Players[i].Position       = ctx.Players[i].FormationAnchor;
+                ctx.Players[i].Position = ctx.Players[i].FormationAnchor;
                 ctx.Players[i].TargetPosition = ctx.Players[i].FormationAnchor;
-                ctx.Players[i].Velocity       = Vec2.Zero;
+                ctx.Players[i].Velocity = Vec2.Zero;
             }
         }
     }
