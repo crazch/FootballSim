@@ -131,12 +131,6 @@ namespace FootballSim.Engine.Models
         /// <summary>Away team goals. Incremented by EventSystem on Goal event (TeamId == 1).</summary>
         public int AwayScore;
 
-        /// <summary>
-        /// Which team kicks off next. 0 = home, 1 = away.
-        /// After goal, conceding team kicks off.
-        /// </summary>
-        public int KickoffTeam = 0;
-
         // ── Possession Counters ───────────────────────────────────────────────
 
         /// <summary>
@@ -177,6 +171,41 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public CollisionResult LastCollisionResult;
 
+        // ── Block Shift (written by BlockShiftSystem each tick) ───────────────
+
+        /// <summary>
+        /// Signed X offset from pitch centre for the home defensive shape template.
+        /// Positive = shape shifted right. Negative = left.
+        /// Written by BlockShiftSystem. Read by DecisionSystem.ComputeShiftedTarget().
+        /// Initialised to 0 (centred). Smoothly lerped each tick by BlockShiftSystem.
+        /// </summary>
+        public float HomeShiftX = 0f;
+
+        /// <summary>Same as HomeShiftX but for the away team's defensive shape.</summary>
+        public float AwayShiftX = 0f;
+
+        /// <summary>
+        /// World Y coordinate of the home team's defensive line this tick.
+        /// Home defends top (Y=0 side). Deep line = large Y. High line = smaller Y.
+        /// Written by BlockShiftSystem. Read by DecisionSystem for CB/LB/RB Y targets.
+        /// </summary>
+        public float HomeDefLineY = 0f;
+
+        /// <summary>
+        /// World Y coordinate of the away team's defensive line this tick.
+        /// Away defends bottom (Y=680 side). Deep line = small Y. High = larger Y.
+        /// </summary>
+        public float AwayDefLineY = 0f;
+
+        // ── Kickoff state ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Which team kicks off next. 0 = home, 1 = away.
+        /// Set by EventSystem when a goal is scored (conceding team kicks off).
+        /// Read by MatchEngine.HandleGoalScoredPause().
+        /// </summary>
+        public int KickoffTeam = 0;
+
         // ── Constructor ───────────────────────────────────────────────────────
 
         /// <summary>
@@ -198,6 +227,12 @@ namespace FootballSim.Engine.Models
             HomePossessionTicks = 0;
             AwayPossessionTicks = 0;
             Random = new Random(RandomSeed); // seeded for deterministic replay
+
+            // Block shift initialised to neutral. BlockShiftSystem corrects on first tick.
+            HomeShiftX = 0f;
+            AwayShiftX = 0f;
+            HomeDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.65f; // sensible default home
+            AwayDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.35f; // sensible default away
         }
 
         // ── Helpers (minimal — context is mostly data) ────────────────────────

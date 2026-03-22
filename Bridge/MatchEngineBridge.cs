@@ -355,6 +355,10 @@ namespace FootballSim.Bridge
 			dict["ball_owner"] = frame.Ball.OwnerId;
 			dict["ball_is_shot"] = frame.Ball.IsShot;
 
+			// Offside lines — computed by BlockShiftSystem, captured per frame
+			dict["home_offside_y"] = frame.HomeOffsideY;
+			dict["away_offside_y"] = frame.AwayOffsideY;
+
 			// Players — 22 player snapshots
 			var playerArray = new Godot.Collections.Array();
 			for (int i = 0; i < 22; i++)
@@ -446,40 +450,40 @@ namespace FootballSim.Bridge
 		/// Use after simulation completes to inspect specific moments.
 		/// </summary>
 		public void DumpTickRange(int fromTick, int toTick, int filterPlayerId = -1)
-{
-	if (_replay == null) 
-	{ 
-		GD.Print("[Bridge] No replay loaded."); 
-		return; 
-	}
-
-	for (int t = fromTick; t <= toTick && t < _replay.Frames.Count; t++)
-	{
-		ReplayFrame f = _replay.Frames[t];
-		GD.Print($"[TICK {t}] phase={f.Phase} score={f.HomeScore}-{f.AwayScore} " +
-				 $"ball_pos={f.Ball.Position} ball_phase={f.Ball.Phase} " +
-				 $"ball_owner={f.Ball.OwnerId} ball_height={f.Ball.Height:F2} " +
-				 $"is_shot={f.Ball.IsShot}");
-
-		// Player positions (filtered)
-		for (int i = 0; i < 22; i++)
 		{
-			if (filterPlayerId >= 0 && i != filterPlayerId) continue; // <-- only this player
+			if (_replay == null)
+			{
+				GD.Print("[Bridge] No replay loaded.");
+				return;
+			}
 
-			var p = f.Players[i];
-			if (!p.IsActive) continue;
+			for (int t = fromTick; t <= toTick && t < _replay.Frames.Count; t++)
+			{
+				ReplayFrame f = _replay.Frames[t];
+				GD.Print($"[TICK {t}] phase={f.Phase} score={f.HomeScore}-{f.AwayScore} " +
+						 $"ball_pos={f.Ball.Position} ball_phase={f.Ball.Phase} " +
+						 $"ball_owner={f.Ball.OwnerId} ball_height={f.Ball.Height:F2} " +
+						 $"is_shot={f.Ball.IsShot}");
 
-			string side = i <= 10 ? "H" : "A";
-			GD.Print($"  P{i}[{side}] pos={p.Position} action={p.Action} " +
-					 $"hasBall={p.HasBall} stamina={p.Stamina:F2}");
+				// Player positions (filtered)
+				for (int i = 0; i < 22; i++)
+				{
+					if (filterPlayerId >= 0 && i != filterPlayerId) continue; // <-- only this player
+
+					var p = f.Players[i];
+					if (!p.IsActive) continue;
+
+					string side = i <= 10 ? "H" : "A";
+					GD.Print($"  P{i}[{side}] pos={p.Position} action={p.Action} " +
+							 $"hasBall={p.HasBall} stamina={p.Stamina:F2}");
+				}
+
+				// Print events (optional, still shows all)
+				if (f.Events != null)
+					foreach (var ev in f.Events)
+						GD.Print($"  >> EVENT {ev.Type}: {ev.Description}");
+			}
 		}
-
-		// Print events (optional, still shows all)
-		if (f.Events != null)
-			foreach (var ev in f.Events)
-				GD.Print($"  >> EVENT {ev.Type}: {ev.Description}");
-	}
-}
 
 		// =====================================================================
 		// STATS ACCESS (called by PostMatch.gd)

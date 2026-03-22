@@ -50,6 +50,7 @@
 
 using System.Collections.Generic;
 using FootballSim.Engine.Models;
+using FootballSim.Engine.Systems;
 
 namespace FootballSim.Engine.Core
 {
@@ -170,6 +171,22 @@ namespace FootballSim.Engine.Core
         /// <summary>Away score at the end of this tick.</summary>
         public int AwayScore;
 
+        // ── Offside / Defensive line ──────────────────────────────────────────
+
+        /// <summary>
+        /// Y coordinate of the home team's offside line this tick.
+        /// = Y of the most advanced home defender (LB, RB, CB, CDM).
+        /// Home attacks down (Y=680): smaller Y = higher line = more advanced.
+        /// Used by DefensiveLineOverlay.gd for the accurate offside line visual.
+        /// </summary>
+        public float HomeOffsideY;
+
+        /// <summary>
+        /// Y coordinate of the away team's offside line this tick.
+        /// Away attacks up (Y=0): larger Y = higher line = more advanced.
+        /// </summary>
+        public float AwayOffsideY;
+
         // ── Events ────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -198,22 +215,24 @@ namespace FootballSim.Engine.Core
         {
             var frame = new ReplayFrame
             {
-                Tick        = ctx.Tick,
+                Tick = ctx.Tick,
                 MatchSecond = ctx.MatchSecond,
                 MatchMinute = ctx.MatchMinute,
-                HomeScore   = ctx.HomeScore,
-                AwayScore   = ctx.AwayScore,
-                Phase       = ctx.Phase,
+                HomeScore = ctx.HomeScore,
+                AwayScore = ctx.AwayScore,
+                Phase = ctx.Phase,
+                HomeOffsideY = BlockShiftSystem.ComputeOffsideLineY(0, ctx),
+                AwayOffsideY = BlockShiftSystem.ComputeOffsideLineY(1, ctx),
             };
 
             // Ball snapshot — value copy
             frame.Ball = new BallSnap
             {
                 Position = ctx.Ball.Position,  // Vec2 is a value type — copies cleanly
-                Phase    = ctx.Ball.Phase,
-                Height   = ctx.Ball.Height,
-                OwnerId  = ctx.Ball.OwnerId,
-                IsShot   = ctx.Ball.IsShot,
+                Phase = ctx.Ball.Phase,
+                Height = ctx.Ball.Height,
+                OwnerId = ctx.Ball.OwnerId,
+                IsShot = ctx.Ball.IsShot,
             };
 
             // Player snapshots — 22 value copies
@@ -222,11 +241,11 @@ namespace FootballSim.Engine.Core
             {
                 frame.Players[i] = new PlayerSnap
                 {
-                    Position   = ctx.Players[i].Position,  // Vec2 value copy
-                    Stamina    = ctx.Players[i].Stamina,
-                    HasBall    = ctx.Players[i].HasBall,
-                    Action     = ctx.Players[i].Action,
-                    IsActive   = ctx.Players[i].IsActive,
+                    Position = ctx.Players[i].Position,  // Vec2 value copy
+                    Stamina = ctx.Players[i].Stamina,
+                    HasBall = ctx.Players[i].HasBall,
+                    Action = ctx.Players[i].Action,
+                    IsActive = ctx.Players[i].IsActive,
                     IsSprinting = ctx.Players[i].IsSprinting,
                 };
             }

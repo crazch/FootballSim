@@ -8,91 +8,22 @@
 //   ctx.AwayDefLineY — four floats that DecisionSystem reads when computing
 //   ComputeDefensiveAnchor() and ComputeMarkSpaceTarget().
 //
+//   Main fixes in this revision:
+//   - Uses last touched team to stop both teams from collapsing toward the ball
+//   - Separates "defending team tracks ball" vs "recover to shape"
+//   - Ball carrier is excluded from block shift
+//   - GK/SK return current position instead of static formation anchor
+//   - Offside helper uses TargetPosition (more current than Position)
+//   - Role Y offsets are smaller and scaled by tactics
+//   - Smoothing is time-based instead of a hardcoded per-tick lerp factor
+//   - Defensive line and block shift are clamped and stabilized
+//
 //   CONCEPT — The Rigid Template Model:
 //     The team's defensive shape is a rigid template (11 slot positions relative
 //     to each other). The template slides along the X axis toward the ball.
 //     Each player's TargetPosition = their formation slot position inside the
 //     shifted template. The shape is PRESERVED — only its centre of gravity moves.
 //
-//     ShiftX = how far the shape's centre has moved from pitch centre (X=525).
-//     Positive = shape has shifted right. Negative = left.
-//     Each player's slotOffsetX (FormationAnchor.X − 525) is kept constant.
-//     TargetX = 525 + ShiftX + slotOffsetX
-//     TargetX is clamped so extreme shift doesn't push players off pitch.
-//
-//   THREE SHIFT BEHAVIOURS mapped from TacticsInput:
-//     Park the Bus  (OutOfPossessionShape > 0.8, PressingIntensity < 0.3):
-//       Minimal X shift (≤ 60 units). Shape stays central. Concedes wide space
-//       deliberately to maintain a compact central block.
-//
-//     Mid Block     (OutOfPossessionShape 0.4–0.8):
-//       Moderate shift (up to 120 units). Tracks ball but maintains width.
-//       Opposite side stays within 80 units of centre.
-//
-//     High Press / Gegenpress  (PressingIntensity > 0.7):
-//       Aggressive shift (up to 180 units). Whole unit chases ball aggressively.
-//       Opposite side exposure is accepted — pressing is the priority.
-//
-//   OPPOSITE SIDE PROTECTION:
-//     When ball is on the right, the shape shifts right. But the leftmost slot
-//     in the template is clamped so it never goes below MIN_LEFT_COVERAGE_X.
-//     This prevents the catastrophic failure case (all on right, left empty).
-//     The clamp is implicit via MAX_SHIFT_X per behaviour tier.
-//
-//   DEFENSIVE LINE Y:
-//     Separate from X shift. Computed from DefensiveLine tactic slider.
-//     High line = defenders push toward halfway. Deep line = sit in own half.
-//     Y shift is used by DecisionSystem for all out-of-possession Y targets.
-//
-//   SMOOTHING:
-//     Raw shift is lerped toward target each tick.
-//     SHIFT_SMOOTH_FACTOR controls how fast the shape slides.
-//     High factor = instant (unnatural). Low factor = laggy response.
-//     Default 0.08 = shape takes ~12 ticks (1.2 seconds) to fully reposition.
-//
-// API:
-//   BlockShiftSystem.Tick(MatchContext ctx) → void
-//     Updates ctx.HomeShiftX, ctx.AwayShiftX,
-//             ctx.HomeDefLineY, ctx.AwayDefLineY.
-//     Called ONCE per tick by MatchEngine after MovementSystem,
-//     BEFORE DecisionSystem (PlayerAI).
-//
-//   BlockShiftSystem.ComputeShiftedTarget(
-//       ref PlayerState player, MatchContext ctx) → Vec2
-//     Returns the shifted slot position for one player. Called by
-//     DecisionSystem.ComputeDefensiveAnchor() and ComputeMarkSpaceTarget().
-//
-//   BlockShiftSystem.ComputeOffsideLineY(int teamId, MatchContext ctx) → float
-//     Returns the Y coordinate of the last defender line for a team.
-//     Used by the visualisation layer (OffsideLine overlay) and by
-//     DecisionSystem for striker positioning (fix 2 — striker between CBs).
-//
-// Tick order (locked):
-//   1. MovementSystem     — positions updated
-//   2. BlockShiftSystem   ← HERE: shift offsets computed, stored in ctx
-//   3. PlayerAI           — reads shift offsets via ComputeShiftedTarget()
-//   4. BallSystem         — ball physics
-//   5. CollisionSystem    — contests
-//   6. EventSystem        — events
-//
-// Dependencies:
-//   Engine/Models/MatchContext.cs   (reads Ball.Position, Players[], Tactics)
-//   Engine/Models/PlayerState.cs
-//   Engine/Models/Enums.cs          (PlayerRole)
-//   Engine/Systems/PhysicsConstants.cs
-//   Engine/Systems/AIConstants.cs
-//   Engine/Math/MathUtil.cs
-//
-// Notes:
-//   • BlockShiftSystem NEVER writes to PlayerState.Position or .TargetPosition.
-//     It only writes to ctx shift fields. DecisionSystem reads those fields when
-//     it computes TargetPosition. MovementSystem then moves players toward that
-//     TargetPosition over subsequent ticks. The shift is therefore automatically
-//     smoothed by MovementSystem's acceleration limits.
-//   • The additional ctx fields (HomeShiftX, AwayShiftX, HomeDefLineY, AwayDefLineY)
-//     must be added to MatchContext.cs.
-//   • GK and SK are excluded from the shift — they always stay on goal line.
-//   • Players with ball are excluded — DecisionSystem handles them separately.
 // =============================================================================
 
 using System;
@@ -109,60 +40,44 @@ namespace FootballSim.Engine.Systems
     {
         // ── DEBUG ─────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// When true, logs the computed shift X and defensive line Y for both teams
-        /// every SHIFT_DEBUG_INTERVAL ticks. Useful for checking shift responsiveness.
-        /// </summary>
         public static bool DEBUG = false;
-        private const int SHIFT_DEBUG_INTERVAL = 300; // every 30 seconds match time
+        private const int SHIFT_DEBUG_INTERVAL = 300;
 
-        // ── Shift smoothing ───────────────────────────────────────────────────
+        // ── Tick timing / smoothing ───────────────────────────────────────────
+        // If your engine tick rate changes, update this constant or move it into ctx.
+        private const float ASSUMED_TICK_SECONDS = 0.10f; // 10 ticks/sec
 
         /// <summary>
-        /// How fast the shift lerps toward the target position per tick.
-        /// 0.08 = takes ~12 ticks (1.2 seconds) to close 90% of the gap.
-        /// Increase for snappier response. Decrease for more inertia (realistic fatigue).
+        /// Time constant for team-shape movement toward a tracked ball-side target.
+        /// Smaller = snappier, larger = more inertia.
         /// </summary>
-        private const float SHIFT_SMOOTH_FACTOR = 0.08f;
+        private const float SHIFT_TRACK_TIME_CONSTANT = 1.15f;
+
+        /// <summary>
+        /// Time constant for returning toward neutral shape when not tracking.
+        /// Usually a little faster than tracking, so teams recover shape cleanly.
+        /// </summary>
+        private const float SHIFT_RECOVER_TIME_CONSTANT = 0.85f;
 
         // ── Shift magnitude limits per behaviour tier ─────────────────────────
 
-        /// <summary>Max X shift for Park the Bus teams. 60 units = 6m from centre.</summary>
         private const float MAX_SHIFT_PARK_BUS = 60f;
-
-        /// <summary>Max X shift for Mid Block teams. 130 units = 13m from centre.</summary>
         private const float MAX_SHIFT_MID_BLOCK = 130f;
-
-        /// <summary>Max X shift for High Press teams. 200 units = 20m from centre.</summary>
         private const float MAX_SHIFT_HIGH_PRESS = 200f;
-
-        /// <summary>
-        /// Absolute maximum shift regardless of tier. Prevents edge players from
-        /// going off pitch even under aggressive shift. 220 units = pitch has 525
-        /// centre, widest player slot is ~180 from centre, so 525-180-220 = 125 margin.
-        /// </summary>
         private const float SHIFT_ABSOLUTE_MAX = 220f;
 
         // ── Defensive line Y constants ────────────────────────────────────────
-        // These are pitch-fraction values, multiplied by PITCH_HEIGHT in computation.
-        // Home attacks down (toward Y=680). Away attacks up (toward Y=0).
-        // "Deep" for home = high Y (near Y=680). "High" for home = low Y (near half).
 
-        /// <summary>
-        /// Deepest defensive line Y fraction for home team. 0.75 × 680 = 510.
-        /// Home defenders sit at Y=510 when DefensiveLine=0 (deepest).
-        /// </summary>
         private const float HOME_DEF_LINE_DEEP = 0.75f;
-
-        /// <summary>
-        /// Highest defensive line Y fraction for home team. 0.38 × 680 = 258.
-        /// Home defenders sit at Y=258 when DefensiveLine=1 (highest line).
-        /// </summary>
         private const float HOME_DEF_LINE_HIGH = 0.38f;
 
-        // Away is the mirror: deep = 0.25 × 680 = 170. High = 0.62 × 680 = 422.
         private const float AWAY_DEF_LINE_DEEP = 0.25f;
         private const float AWAY_DEF_LINE_HIGH = 0.62f;
+
+        // ── Pitch margins ────────────────────────────────────────────────────
+
+        private const float X_MARGIN = 40f;
+        private const float Y_MARGIN = 10f;
 
         // =====================================================================
         // MAIN TICK
@@ -177,62 +92,47 @@ namespace FootballSim.Engine.Systems
             Vec2 ballPos = ctx.Ball.Position;
             float pitchCentreX = PhysicsConstants.PITCH_WIDTH * 0.5f;
 
-            // ── Determine possession state ────────────────────────────────────
-            // OwnerId >= 0 means a player literally has the ball this tick.
-            // InFlight/Loose/OutOfPlay: OwnerId = -1. We use LastTouchedBy to
-            // determine which team "had" the ball last, so the shift doesn't
-            // collapse to centre every time a pass is in flight or the ball is
-            // out of play. This is the fix for the "both teams squeeze to centre"
-            // bug during InFlight passes and out-of-play situations.
-
             bool homeHasBall = ctx.Ball.OwnerId >= 0 && ctx.Ball.OwnerId <= 10;
             bool awayHasBall = ctx.Ball.OwnerId >= 11 && ctx.Ball.OwnerId <= 21;
 
-            // When no explicit owner (InFlight, Loose, OutOfPlay), infer from LastTouchedBy
-            // so defending team still tracks ball position, not collapsed to centre.
-            int lastTeam = -1;
-            if (!homeHasBall && !awayHasBall && ctx.Ball.LastTouchedBy >= 0)
-                lastTeam = ctx.Ball.LastTouchedBy <= 10 ? 0 : 1;
+            int lastTouchedTeam = GetLastTouchedTeam(ctx);
 
-            // ── Home team shift ───────────────────────────────────────────────
-            if (homeHasBall)
-            {
-                // Home has ball — gradually return shift to neutral (centred)
-                ctx.HomeShiftX = MathUtil.Lerp(ctx.HomeShiftX, 0f, SHIFT_SMOOTH_FACTOR * 0.5f);
-            }
-            else
-            {
-                // Home is defending or ball is loose — compute shift toward ball
-                // Ball position is valid even when OutOfPlay (clamped to boundary)
-                float targetShiftX = ComputeTargetShiftX(
-                    ballPos, ctx.HomeTeam.Tactics, pitchCentreX);
-                ctx.HomeShiftX = MathUtil.Lerp(ctx.HomeShiftX, targetShiftX, SHIFT_SMOOTH_FACTOR);
-            }
+            // Each team decides independently:
+            // - if they have the ball, they recover toward neutral
+            // - if they are the team defending the current ball state, they track
+            // - otherwise they recover instead of also collapsing toward the ball
+            bool homeTracksBall = ShouldTrackBall(teamId: 0, ctx, lastTouchedTeam, homeHasBall);
+            bool awayTracksBall = ShouldTrackBall(teamId: 1, ctx, lastTouchedTeam, awayHasBall);
 
-            // ── Away team shift ───────────────────────────────────────────────
-            if (awayHasBall)
-            {
-                ctx.AwayShiftX = MathUtil.Lerp(ctx.AwayShiftX, 0f, SHIFT_SMOOTH_FACTOR * 0.5f);
-            }
-            else
-            {
-                float targetShiftX = ComputeTargetShiftX(
-                    ballPos, ctx.AwayTeam.Tactics, pitchCentreX);
-                ctx.AwayShiftX = MathUtil.Lerp(ctx.AwayShiftX, targetShiftX, SHIFT_SMOOTH_FACTOR);
-            }
+            ctx.HomeShiftX = UpdateTeamShift(
+                currentShift: ctx.HomeShiftX,
+                teamId: 0,
+                hasBall: homeHasBall,
+                tracksBall: homeTracksBall,
+                ballPos: ballPos,
+                tactics: ctx.HomeTeam.Tactics,
+                pitchCentreX: pitchCentreX);
 
-            // ── Defensive line Y — both teams, always computed ────────────────
+            ctx.AwayShiftX = UpdateTeamShift(
+                currentShift: ctx.AwayShiftX,
+                teamId: 1,
+                hasBall: awayHasBall,
+                tracksBall: awayTracksBall,
+                ballPos: ballPos,
+                tactics: ctx.AwayTeam.Tactics,
+                pitchCentreX: pitchCentreX);
+
             ctx.HomeDefLineY = ComputeDefLineY(ctx.HomeTeam.Tactics, isHome: true);
             ctx.AwayDefLineY = ComputeDefLineY(ctx.AwayTeam.Tactics, isHome: false);
 
-            // ── DEBUG ─────────────────────────────────────────────────────────
             if (DEBUG && ctx.Tick % SHIFT_DEBUG_INTERVAL == 0)
             {
                 Console.WriteLine(
                     $"[BlockShiftSystem] Tick {ctx.Tick} " +
                     $"Ball=({ballPos.X:F0},{ballPos.Y:F0}) " +
                     $"HomeShiftX={ctx.HomeShiftX:F1} AwayShiftX={ctx.AwayShiftX:F1} " +
-                    $"HomeDefY={ctx.HomeDefLineY:F0} AwayDefY={ctx.AwayDefLineY:F0}");
+                    $"HomeDefY={ctx.HomeDefLineY:F0} AwayDefY={ctx.AwayDefLineY:F0} " +
+                    $"LastTouchedTeam={lastTouchedTeam}");
             }
         }
 
@@ -245,68 +145,49 @@ namespace FootballSim.Engine.Systems
         /// Called by DecisionSystem.ComputeDefensiveAnchor() and
         /// DecisionSystem.ComputeMarkSpaceTarget() instead of raw FormationAnchor.
         ///
-        /// The shift is applied to the X axis only.
-        /// Y is determined by the defensive line height (DefLineY from ctx).
-        /// GK and SK are excluded — they return their goal-line anchor unchanged.
-        ///
-        /// Formula:
-        ///   slotOffsetX = FormationAnchor.X − pitchCentreX
-        ///   shiftedX    = pitchCentreX + shiftX + slotOffsetX
-        ///   shiftedX    = clamped to [MIN_X_MARGIN, PITCH_WIDTH − MIN_X_MARGIN]
-        ///   shiftedY    = defensive line Y for this team
+        /// GK/SK and ball carriers are excluded from the shift.
         /// </summary>
         public static Vec2 ComputeShiftedTarget(ref PlayerState player, MatchContext ctx)
         {
-            // GK/SK always stay on goal line — no shift applied
+            // Ball carrier should be handled by separate ball-control logic.
+            if (player.HasBall)
+                return player.Position;
+
+            // GK/SK stay on their own line and should not be warped by block shift.
             if (player.Role == PlayerRole.GK || player.Role == PlayerRole.SK)
-                return player.FormationAnchor;
+                return player.Position;
 
             float pitchCentreX = PhysicsConstants.PITCH_WIDTH * 0.5f;
             float shiftX = player.TeamId == 0 ? ctx.HomeShiftX : ctx.AwayShiftX;
             float defLineY = player.TeamId == 0 ? ctx.HomeDefLineY : ctx.AwayDefLineY;
+            TacticsInput tactics = player.TeamId == 0 ? ctx.HomeTeam.Tactics : ctx.AwayTeam.Tactics;
 
-            // Player's slot offset from centre (preserved — this is what maintains shape)
             float slotOffsetX = player.FormationAnchor.X - pitchCentreX;
-
-            // Apply shift: centre of gravity moves, slot offset stays constant
             float shiftedX = pitchCentreX + shiftX + slotOffsetX;
+            shiftedX = Math.Clamp(shiftedX, X_MARGIN, PhysicsConstants.PITCH_WIDTH - X_MARGIN);
 
-            // Clamp so extreme shift doesn't push a player off pitch
-            // Leave 40 units margin from each touchline
-            shiftedX = Math.Clamp(shiftedX, 40f, PhysicsConstants.PITCH_WIDTH - 40f);
-
-            // For Y: use the defensive line height, but preserve role-based vertical
-            // offset within the defensive block (e.g. CDM is ahead of CBs).
-            // Each role has a fixed Y offset relative to the defensive line anchor.
-            float roleYOffset = ComputeRoleYOffset(player.Role, player.TeamId == 0);
-            float shiftedY   = defLineY + roleYOffset;
-            shiftedY = Math.Clamp(shiftedY, PhysicsConstants.PITCH_TOP + 10f,
-                                             PhysicsConstants.PITCH_BOTTOM - 10f);
+            float roleYOffset = ComputeRoleYOffset(player.Role, attacksDown: player.TeamId == 0, tactics);
+            float shiftedY = defLineY + roleYOffset;
+            shiftedY = Math.Clamp(shiftedY,
+                PhysicsConstants.PITCH_TOP + Y_MARGIN,
+                PhysicsConstants.PITCH_BOTTOM - Y_MARGIN);
 
             return new Vec2(shiftedX, shiftedY);
         }
 
         /// <summary>
         /// Returns the Y coordinate of the offside line for a team.
-        /// Offside line = Y of the last outfield defender (not GK).
-        /// "Last" means furthest from own goal = closest to halfway/opponent.
-        ///
-        /// Home attacks down (Y=680): last defender = smallest Y among defenders.
-        /// Away attacks up  (Y=0):    last defender = largest Y among defenders.
-        ///
-        /// Used by:
-        ///   - Offside line GDScript overlay (visual dashed line)
-        ///   - DecisionSystem striker positioning (fix 2)
+        /// Uses TargetPosition rather than Position so the line follows tactical intent
+        /// instead of lagging behind movement.
         /// </summary>
         public static float ComputeOffsideLineY(int teamId, MatchContext ctx)
         {
             int start = teamId == 0 ? 0 : 11;
-            int end   = teamId == 0 ? 11 : 22;
+            int end = teamId == 0 ? 11 : 22;
             bool attacksDown = teamId == 0;
 
-            // We want the MOST ADVANCED defender (not GK, not ball carrier)
             float offsideY = attacksDown ? float.MaxValue : float.MinValue;
-            bool  found    = false;
+            bool found = false;
 
             for (int i = start; i < end; i++)
             {
@@ -314,29 +195,31 @@ namespace FootballSim.Engine.Systems
                 if (!p.IsActive) continue;
                 if (p.Role == PlayerRole.GK || p.Role == PlayerRole.SK) continue;
                 if (p.HasBall) continue;
-
-                // Only consider actual defenders and defensive mids for offside line
-                // Forwards do not set the offside line
                 if (!IsDefenderRole(p.Role)) continue;
 
-                // Home attacks down — last defender is the one with the SMALLEST Y
-                // (closest to the top of the pitch, i.e. furthest from own goal at bottom)
-                // Away attacks up — last defender is the one with the LARGEST Y
+                // Use TargetPosition so the overlay and striker logic see the intended line.
+                float y = p.TargetPosition.Y;
+
                 if (attacksDown)
                 {
-                    if (p.Position.Y < offsideY) { offsideY = p.Position.Y; found = true; }
+                    if (y < offsideY)
+                    {
+                        offsideY = y;
+                        found = true;
+                    }
                 }
                 else
                 {
-                    if (p.Position.Y > offsideY) { offsideY = p.Position.Y; found = true; }
+                    if (y > offsideY)
+                    {
+                        offsideY = y;
+                        found = true;
+                    }
                 }
             }
 
             if (!found)
-            {
-                // Fallback: halfway line
                 return PhysicsConstants.PITCH_HEIGHT * 0.5f;
-            }
 
             return offsideY;
         }
@@ -345,25 +228,91 @@ namespace FootballSim.Engine.Systems
         // PRIVATE — shift computation helpers
         // =====================================================================
 
+        private static int GetLastTouchedTeam(MatchContext ctx)
+        {
+            int lastTouch = ctx.Ball.LastTouchedBy;
+            if (lastTouch < 0 || lastTouch > 21)
+                return -1;
+
+            return lastTouch <= 10 ? 0 : 1;
+        }
+
+        private static bool ShouldTrackBall(int teamId, MatchContext ctx, int lastTouchedTeam, bool teamHasBall)
+        {
+            if (teamHasBall)
+                return false;
+
+            // If the ball is out of play or loose, the team that did NOT last touch it
+            // is the one that should be shaping to defend the restart / contest.
+            if (ctx.Ball.IsOutOfPlay || ctx.Ball.OwnerId < 0)
+                return lastTouchedTeam >= 0 && lastTouchedTeam != teamId;
+
+            return lastTouchedTeam >= 0 && lastTouchedTeam != teamId;
+        }
+
+        private static float UpdateTeamShift(
+            float currentShift,
+            int teamId,
+            bool hasBall,
+            bool tracksBall,
+            Vec2 ballPos,
+            TacticsInput tactics,
+            float pitchCentreX)
+        {
+            float targetShift;
+
+            if (hasBall)
+            {
+                targetShift = 0f;
+                return SmoothTowards(currentShift, targetShift, SHIFT_RECOVER_TIME_CONSTANT);
+            }
+
+            if (tracksBall)
+            {
+                targetShift = ComputeTargetShiftX(ballPos, tactics, pitchCentreX);
+
+                // If ball is out of play, be a bit less aggressive so the shape
+                // doesn't whip unnaturally to the boundary.
+                if (ballPos.X <= PhysicsConstants.PITCH_LEFT ||
+                    ballPos.X >= PhysicsConstants.PITCH_RIGHT ||
+                    ballPos.Y <= PhysicsConstants.PITCH_TOP ||
+                    ballPos.Y >= PhysicsConstants.PITCH_BOTTOM)
+                {
+                    targetShift *= 0.90f;
+                }
+
+                return SmoothTowards(currentShift, targetShift, SHIFT_TRACK_TIME_CONSTANT);
+            }
+
+            // Not the defending team right now: recover toward neutral instead of also chasing.
+            return SmoothTowards(currentShift, 0f, SHIFT_RECOVER_TIME_CONSTANT);
+        }
+
+        /// <summary>
+        /// Time-based smoothing so the behavior stays stable if tick rate changes.
+        /// </summary>
+        private static float SmoothTowards(float current, float target, float timeConstantSeconds)
+        {
+            if (timeConstantSeconds <= 0f)
+                return target;
+
+            float alpha = 1f - MathF.Exp(-ASSUMED_TICK_SECONDS / timeConstantSeconds);
+            alpha = Math.Clamp(alpha, 0f, 1f);
+
+            float next = MathUtil.Lerp(current, target, alpha);
+            return Math.Clamp(next, -SHIFT_ABSOLUTE_MAX, SHIFT_ABSOLUTE_MAX);
+        }
+
         /// <summary>
         /// Computes the target X shift for the defensive shape based on ball position
         /// and tactical settings. Returns signed offset from pitch centre (positive = right).
         /// </summary>
-        private static float ComputeTargetShiftX(Vec2 ballPos, TacticsInput tactics,
-                                                   float pitchCentreX)
+        private static float ComputeTargetShiftX(Vec2 ballPos, TacticsInput tactics, float pitchCentreX)
         {
-            // Raw ball offset from centre: positive = ball is on right
             float ballOffsetX = ballPos.X - pitchCentreX;
-
-            // Determine shift tier from tactics
             float maxShift = ComputeMaxShiftForTactics(tactics);
-
-            // Shift intensity: how strongly this team tracks the ball
-            // OutOfPossessionShape: higher = more compact = LESS shift (stay central)
-            // PressingIntensity:    higher = more aggressive = MORE shift
             float shiftIntensity = ComputeShiftIntensity(tactics);
 
-            // Target shift = ball offset × intensity, clamped to tier max
             float targetShift = ballOffsetX * shiftIntensity;
             targetShift = Math.Clamp(targetShift, -maxShift, maxShift);
             targetShift = Math.Clamp(targetShift, -SHIFT_ABSOLUTE_MAX, SHIFT_ABSOLUTE_MAX);
@@ -380,43 +329,31 @@ namespace FootballSim.Engine.Systems
             bool isParkTheBus = tactics.OutOfPossessionShape > 0.75f
                              && tactics.PressingIntensity < 0.35f;
 
-            bool isHighPress  = tactics.PressingIntensity > 0.65f;
+            bool isHighPress = tactics.PressingIntensity > 0.65f;
 
             if (isParkTheBus) return MAX_SHIFT_PARK_BUS;
-            if (isHighPress)  return MAX_SHIFT_HIGH_PRESS;
+            if (isHighPress) return MAX_SHIFT_HIGH_PRESS;
             return MAX_SHIFT_MID_BLOCK;
         }
 
         /// <summary>
         /// Returns a 0–1 multiplier for how aggressively this team tracks ball X.
-        /// Higher = shape moves more per unit of ball X offset.
-        ///
-        /// Pressing intensity pulls the shape toward the ball (aggressive tracking).
-        /// OutOfPossessionShape compactness resists the pull (stay central).
-        /// Net intensity = pressing pull minus compactness resistance, clamped to [0.1, 0.8].
-        ///
-        /// 0.1 = shape barely moves (park the bus: stay compact central)
-        /// 0.8 = shape moves 80% of the ball's offset (high press: chase the ball)
-        /// The fraction of 0.8 not 1.0 ensures the opposite side is never fully empty.
         /// </summary>
         private static float ComputeShiftIntensity(TacticsInput tactics)
         {
-            float pressPull       = tactics.PressingIntensity * 0.5f;          // 0–0.5
-            float compactResist   = tactics.OutOfPossessionShape * 0.3f;       // 0–0.3
-            float intensity       = pressPull - compactResist + 0.15f;         // bias above zero
+            float pressPull = tactics.PressingIntensity * 0.5f;      // 0–0.5
+            float compactResist = tactics.OutOfPossessionShape * 0.3f; // 0–0.3
+            float intensity = pressPull - compactResist + 0.15f;
             return Math.Clamp(intensity, 0.10f, 0.80f);
         }
 
         /// <summary>
         /// Computes the defensive line Y coordinate from the DefensiveLine tactic slider.
-        /// This is the Y that the deepest defensive unit targets.
-        /// Home team: deep = Y close to 680 (own goal). High = Y close to 340 (halfway).
-        /// Away team: deep = Y close to 0 (own goal). High = Y close to 340.
         /// </summary>
         private static float ComputeDefLineY(TacticsInput tactics, bool isHome)
         {
             float pitchH = PhysicsConstants.PITCH_HEIGHT;
-            float t = tactics.DefensiveLine; // 0 = deep, 1 = high
+            float t = Math.Clamp(tactics.DefensiveLine, 0f, 1f);
 
             float lineYNorm = isHome
                 ? MathUtil.Lerp(HOME_DEF_LINE_DEEP, HOME_DEF_LINE_HIGH, t)
@@ -427,78 +364,67 @@ namespace FootballSim.Engine.Systems
 
         /// <summary>
         /// Returns a Y offset from the defensive line anchor for each role.
-        /// This preserves vertical structure within the defensive block.
+        /// Smaller values than before to avoid exaggerated vertical jumps.
         /// Positive = further from own goal (more advanced).
-        /// Negative = closer to own goal (deeper).
-        ///
-        /// Home attacks down: "further from own goal" = smaller Y (closer to top).
-        ///   So for home: positive offset = negative Y offset in world.
-        /// Away attacks up: "further from own goal" = larger Y.
-        ///   So for away: positive offset = positive Y offset in world.
-        ///
-        /// Values are in engine units. The defensive line Y is for the CB line.
-        /// Everyone else is offset relative to that.
         /// </summary>
-        private static float ComputeRoleYOffset(PlayerRole role, bool attacksDown)
+        private static float ComputeRoleYOffset(PlayerRole role, bool attacksDown, TacticsInput tactics)
         {
-            // Positive = more advanced (further from own goal).
-            // We apply sign flip based on attacking direction.
-            float advanceAmount;
+            float baseAdvanceAmount;
 
             switch (role)
             {
-                // Deepest — sit level with or just behind the CB line
                 case PlayerRole.CB:
                 case PlayerRole.BPD:
-                    advanceAmount = 0f;
-                    break;
-
-                // Full backs / wing backs — level with CBs
                 case PlayerRole.RB:
                 case PlayerRole.LB:
                 case PlayerRole.WB:
-                    advanceAmount = 0f;
+                    baseAdvanceAmount = 0f;
                     break;
 
-                // Defensive midfielders — one line ahead of CBs
                 case PlayerRole.CDM:
                 case PlayerRole.DLP:
-                    advanceAmount = -60f; // 60 units ahead of CB line
+                    baseAdvanceAmount = 22f;
                     break;
 
-                // Central midfielders — two lines ahead
                 case PlayerRole.CM:
                 case PlayerRole.BBM:
-                    advanceAmount = -110f;
+                    baseAdvanceAmount = 40f;
                     break;
 
-                // Wide and attacking players — track deeper when out of possession
                 case PlayerRole.AM:
                 case PlayerRole.IW:
                 case PlayerRole.WF:
-                    advanceAmount = -150f;
+                    baseAdvanceAmount = 58f;
                     break;
 
-                // Forwards — sit high to provide outlet, but not in opponent box
                 case PlayerRole.CF:
                 case PlayerRole.ST:
                 case PlayerRole.PF:
-                    advanceAmount = -200f; // furthest from own goal when defending
+                    baseAdvanceAmount = 78f;
                     break;
 
                 default:
-                    advanceAmount = -80f;
+                    baseAdvanceAmount = 30f;
                     break;
             }
 
-            // Home attacks down → more advanced = lower Y (negative world Y offset)
-            // Away attacks up   → more advanced = higher Y (positive world Y offset)
-            return attacksDown ? advanceAmount : -advanceAmount;
+            float compactness = Math.Clamp(tactics.OutOfPossessionShape, 0f, 1f);
+            float lineAggression = Math.Clamp(tactics.DefensiveLine, 0f, 1f);
+
+            // More compact teams keep the vertical block tighter.
+            // Higher defensive lines allow a little more vertical spread.
+            float spreadScale = MathUtil.Lerp(1.00f, 0.78f, compactness);
+            float lineScale = MathUtil.Lerp(0.90f, 1.15f, lineAggression);
+
+            float offset = baseAdvanceAmount * spreadScale * lineScale;
+
+            // Home attacks down -> more advanced means smaller Y.
+            // Away attacks up   -> more advanced means larger Y.
+            return attacksDown ? -offset : offset;
         }
 
         /// <summary>
-        /// Returns true if this role is part of the defensive unit that sets the
-        /// offside line. Midfielders and forwards do NOT set the offside line.
+        /// Returns true if this role is part of the defensive unit that sets the line.
         /// </summary>
         private static bool IsDefenderRole(PlayerRole role)
         {
@@ -509,7 +435,7 @@ namespace FootballSim.Engine.Systems
                 case PlayerRole.RB:
                 case PlayerRole.LB:
                 case PlayerRole.WB:
-                case PlayerRole.CDM:  // CDM often serves as the last player in high press
+                case PlayerRole.CDM:
                 case PlayerRole.DLP:
                     return true;
                 default:
