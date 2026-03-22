@@ -67,7 +67,6 @@
 using System;
 using FootballSim.Engine.Models;
 using FootballSim.Engine.Tactics;
-using FootballSim.Engine;
 
 namespace FootballSim.Engine.Systems
 {
@@ -576,10 +575,6 @@ namespace FootballSim.Engine.Systems
             if (dist > AIConstants.PASS_MAX_DISTANCE)
                 return new PassCandidate { ReceiverId = -1, Score = 0f };
 
-            // Disable long passes during debug mode
-            if (AIConstants.DISABLE_LONG_PASS && dist > AIConstants.PASS_LONG_THRESHOLD)
-                return new PassCandidate { ReceiverId = -1, Score = 0f };
-
             // Base score from passing ability
             float abilityFactor = player.PassingAbility;
 
@@ -728,7 +723,7 @@ namespace FootballSim.Engine.Systems
         {
             float senderPressure = ComputeSenderPressure(ref player, ctx);
             // Only hold if not immediately under pressure
-            if (senderPressure > AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
+            if (senderPressure < AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
                 return 0f; // defender too close — must act
 
             // Normalise pressure to [0,1] — higher pressure = lower hold score
@@ -1243,15 +1238,94 @@ namespace FootballSim.Engine.Systems
         }
 
         /// <summary>Run-in-behind target: channel behind last defender line.</summary>
+        /// <summary>
+        /// Run-in-behind target. For striker/forward roles, targets the GAP BETWEEN
+        /// the two opponent CBs rather than a fixed X anchor. This prevents the
+        /// "striker merged with GK" problem by placing attackers between defenders,
+        /// not deeper than the offside line.
+        ///
+        /// The offside line Y is read from BlockShiftSystem.ComputeOffsideLineY()
+        /// so the target stays just behind (onside side of) the last defender.
+        ///
+        /// For non-forward roles (CM, AM): uses formation anchor X as before.
+        /// </summary>
         private static Vec2 ComputeRunInBehindTarget(ref PlayerState player,
                                                        MatchContext ctx)
         {
             bool attacksDown = player.TeamId == 0;
-            float targetY = attacksDown
-                ? PhysicsConstants.PITCH_HEIGHT * 0.85f
-                : PhysicsConstants.PITCH_HEIGHT * 0.15f;
+            int opponentTeam = player.TeamId == 0 ? 1 : 0;
 
-            return new Vec2(player.FormationAnchor.X, targetY);
+            bool isForwardRole = player.Role == PlayerRole.ST ||
+                                 player.Role == PlayerRole.CF ||
+                                 player.Role == PlayerRole.PF ||
+                                 player.Role == PlayerRole.IW ||
+                                 player.Role == PlayerRole.WF ||
+                                 player.Role == PlayerRole.AM;
+
+            if (!isForwardRole)
+            {
+                // Non-forward: target just past midfield in own attacking direction
+                float targetY = attacksDown
+                    ? PhysicsConstants.PITCH_HEIGHT * 0.65f
+                    : PhysicsConstants.PITCH_HEIGHT * 0.35f;
+                return new Vec2(player.FormationAnchor.X, targetY);
+            }
+
+            // ── Forward: target the gap between opponent CBs ──────────────────
+            // Step 1: find opponent CB positions
+            int opStart = opponentTeam == 0 ? 0 : 11;
+            int opEnd = opponentTeam == 0 ? 11 : 22;
+            Vec2 cb1Pos = Vec2.Zero;
+            Vec2 cb2Pos = Vec2.Zero;
+            int cbCount = 0;
+
+            for (int i = opStart; i < opEnd; i++)
+            {
+                if (!ctx.Players[i].IsActive) continue;
+                PlayerRole r = ctx.Players[i].Role;
+                if (r == PlayerRole.CB || r == PlayerRole.BPD)
+                {
+                    if (cbCount == 0) { cb1Pos = ctx.Players[i].Position; cbCount++; }
+                    else if (cbCount == 1) { cb2Pos = ctx.Players[i].Position; cbCount++; }
+                }
+            }
+
+            // Step 2: compute gap X between the two CBs (or use formation anchor if no CBs found)
+            float targetX;
+            if (cbCount == 2)
+            {
+                // Target the midpoint between the two CBs + slight offset toward own anchor side
+                float gapX = (cb1Pos.X + cb2Pos.X) * 0.5f;
+                float anchorX = player.FormationAnchor.X;
+                // Blend toward anchor so wide forwards don't all collapse to centre
+                targetX = MathUtil.Lerp(gapX, anchorX, 0.35f);
+            }
+            else if (cbCount == 1)
+            {
+                targetX = cb1Pos.X; // just target the one CB
+            }
+            else
+            {
+                targetX = player.FormationAnchor.X; // fallback
+            }
+
+            // Step 3: Y = just behind the offside line (on the onside side)
+            // "Just behind" means slightly toward own half from the last defender.
+            float offsideLineY = BlockShiftSystem.ComputeOffsideLineY(opponentTeam, ctx);
+            float onsideOffset = attacksDown ? -15f : 15f; // 15 units = 1.5m behind line
+            float runTargetY = offsideLineY + onsideOffset;
+
+            // Clamp to reasonable attacking zone — don't run back too deep
+            float minAttackY = attacksDown
+                ? PhysicsConstants.PITCH_HEIGHT * 0.45f
+                : 0f;
+            float maxAttackY = attacksDown
+                ? PhysicsConstants.PITCH_HEIGHT
+                : PhysicsConstants.PITCH_HEIGHT * 0.55f;
+            runTargetY = Math.Clamp(runTargetY, minAttackY, maxAttackY);
+            targetX = Math.Clamp(targetX, 40f, PhysicsConstants.PITCH_WIDTH - 40f);
+
+            return new Vec2(targetX, runTargetY);
         }
 
         /// <summary>Overlap target: wide position ahead of current wide player.</summary>
@@ -1284,39 +1358,34 @@ namespace FootballSim.Engine.Systems
         /// Computes defensive anchor adjusted for TacticsInput.DefensiveLine.
         /// Deep line = anchor near own goal. High line = anchor well up the pitch.
         /// </summary>
+        /// <summary>
+        /// Computes defensive anchor using the block shift template.
+        /// Reads pre-computed shift offsets from ctx (written by BlockShiftSystem).
+        /// X: shape slides toward ball, slot offsets preserved (shape maintained).
+        /// Y: defensive line height from DefensiveLine tactic + role vertical offset.
+        /// GK/SK: returns goal-line anchor unchanged.
+        /// </summary>
         private static Vec2 ComputeDefensiveAnchor(ref PlayerState player,
                                                      TacticsInput tactics,
                                                      MatchContext ctx)
         {
-            // DefensiveLine 0=deep (Y=75% depth), 1=high (Y=30% depth)
-            // For home team (attacks down Y): deep = own half high Y, high = lower Y
-            bool attacksDown = player.TeamId == 0;
-
-            float anchorYNorm = attacksDown
-                ? MathUtil.Lerp(0.80f, 0.30f, tactics.DefensiveLine)  // home: deep=0.80 high=0.30
-                : MathUtil.Lerp(0.20f, 0.70f, tactics.DefensiveLine);  // away: flipped
-
-            float anchorY = anchorYNorm * PhysicsConstants.PITCH_HEIGHT;
-
-            // X stays near formation anchor X
-            return new Vec2(player.FormationAnchor.X, anchorY);
+            return BlockShiftSystem.ComputeShiftedTarget(ref player, ctx);
         }
 
-        /// <summary>Zone mark target: position in defensive shape, scaled to OutOfPossessionShape.</summary>
+        /// <summary>
+        /// Zone mark target using the shifted defensive slot position.
+        /// Compactness tightens slots toward the SHIFTED shape centre (not pitch centre).
+        /// </summary>
         private static Vec2 ComputeMarkSpaceTarget(ref PlayerState player,
                                                     TacticsInput tactics,
                                                     MatchContext ctx)
         {
-            // Tighter shape = closer to compact block centre
+            Vec2 shiftedSlot = BlockShiftSystem.ComputeShiftedTarget(ref player, ctx);
+            float shiftX = player.TeamId == 0 ? ctx.HomeShiftX : ctx.AwayShiftX;
+            float shiftedCentreX = PhysicsConstants.PITCH_WIDTH * 0.5f + shiftX;
             float compactness = tactics.OutOfPossessionShape;
-            Vec2 block_centre = new Vec2(
-                PhysicsConstants.PITCH_WIDTH * 0.5f,
-                player.TeamId == 0
-                    ? PhysicsConstants.PITCH_HEIGHT * 0.25f
-                    : PhysicsConstants.PITCH_HEIGHT * 0.75f
-            );
-
-            return player.FormationAnchor.Lerp(block_centre, compactness * 0.4f);
+            float finalX = MathUtil.Lerp(shiftedSlot.X, shiftedCentreX, compactness * 0.25f);
+            return new Vec2(finalX, shiftedSlot.Y);
         }
 
         /// <summary>GK anchor position: on goal line, centred, slightly off line for SK.</summary>

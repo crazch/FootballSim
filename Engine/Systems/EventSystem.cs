@@ -87,11 +87,10 @@ namespace FootballSim.Engine.Systems
         public static bool DEBUG = false;
 
         // ── Match Timing Constants ────────────────────────────────────────────
-
-        /// <summary>
         /// Distance ball must move from centre to finish kickoff
         /// </summary>
         private const float KICKOFF_OPEN_PLAY_THRESHOLD = 80f;
+        /// <summary>
 
         /// <summary>
         /// Tick at which first half ends. 45 min × 60 s/min × 10 ticks/s = 27000.
@@ -532,19 +531,50 @@ namespace FootballSim.Engine.Systems
 
             if (sideline)
             {
-                string throwTeam = (1 - lastTeam) == 0 ? "Home" : "Away";
+                int throwTeamId = 1 - lastTeam;
+                string throwTeam = throwTeamId == 0 ? "Home" : "Away";
                 string desc = $"{ctx.MatchMinute}' THROW-IN — {throwTeam}";
 
                 ctx.EventsThisTick.Add(BuildEvent(ctx,
                     type: MatchEventType.ThrowIn,
                     primary: lastToucher,
                     secondary: -1,
-                    teamId: 1 - lastTeam,   // team that gets the throw
+                    teamId: throwTeamId,
                     pos: ballPos,
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
-                ctx.Ball.IsOutOfPlay = false;   // FIX: consume flag
+
+                // ── Throw-in restart ──────────────────────────────────────────
+                // Place ball at the boundary, assign nearest throw-team player.
+                // Ball stays at clamped boundary X. Find nearest active outfield
+                // player on the throwing team and give them the ball.
+                // They will dribble/pass normally from there next tick.
+                float restartX = Math.Clamp(ballPos.X,
+                    PhysicsConstants.PITCH_LEFT, PhysicsConstants.PITCH_RIGHT);
+                float restartY = Math.Clamp(ballPos.Y,
+                    PhysicsConstants.PITCH_TOP + 10f, PhysicsConstants.PITCH_BOTTOM - 10f);
+                Vec2 restartPos = new Vec2(restartX, restartY);
+
+                int takerStart = throwTeamId == 0 ? 0 : 11;
+                int takerEnd = throwTeamId == 0 ? 11 : 22;
+                int nearestId = -1;
+                float nearestDist = float.MaxValue;
+                for (int i = takerStart; i < takerEnd; i++)
+                {
+                    if (!ctx.Players[i].IsActive) continue;
+                    if (ctx.Players[i].Role == PlayerRole.GK ||
+                        ctx.Players[i].Role == PlayerRole.SK) continue;
+                    float d = ctx.Players[i].Position.DistanceTo(restartPos);
+                    if (d < nearestDist) { nearestDist = d; nearestId = i; }
+                }
+                if (nearestId >= 0)
+                    BallSystem.AssignOwnership(ctx, nearestId);
+
+                // Move ball to restart position
+                ctx.Ball.Position = restartPos;
+                ctx.Ball.Velocity = Vec2.Zero;
+                ctx.Ball.IsOutOfPlay = false;  // ← consume flag, prevent re-firing
                 return;
             }
 
@@ -552,16 +582,20 @@ namespace FootballSim.Engine.Systems
             bool topByline = ballPos.Y <= PhysicsConstants.PITCH_TOP;
             bool bottomByline = ballPos.Y >= PhysicsConstants.PITCH_BOTTOM;
 
-            if (!topByline && !bottomByline) return;
+            if (!topByline && !bottomByline)
+            {
+                // Ball clamped in interior but still flagged — clear the flag
+                ctx.Ball.IsOutOfPlay = false;
+                return;
+            }
 
             // Determine attacking direction
             // Home attacks toward bottom (Y=680), away toward top (Y=0)
-            bool homeAttacksDown = true;
             bool lastTeamWasAttacking;
             if (topByline)
-                lastTeamWasAttacking = lastTeam == 1; // away attacks top
+                lastTeamWasAttacking = lastTeam == 1; // away attacks top (Y=0)
             else
-                lastTeamWasAttacking = lastTeam == 0; // home attacks bottom
+                lastTeamWasAttacking = lastTeam == 0; // home attacks bottom (Y=680)
 
             if (lastTeamWasAttacking)
             {
@@ -579,7 +613,23 @@ namespace FootballSim.Engine.Systems
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
-                ctx.Ball.IsOutOfPlay = false;   // FIX
+
+                // ── Goal kick restart: GK gets the ball ───────────────────────
+                int gkStart = defendingTeam == 0 ? 0 : 11;
+                int gkEnd = defendingTeam == 0 ? 11 : 22;
+                int gkId = -1;
+                for (int i = gkStart; i < gkEnd; i++)
+                {
+                    if (!ctx.Players[i].IsActive) continue;
+                    if (ctx.Players[i].Role == PlayerRole.GK ||
+                        ctx.Players[i].Role == PlayerRole.SK)
+                    { gkId = i; break; }
+                }
+                if (gkId >= 0)
+                    BallSystem.AssignOwnership(ctx, gkId);
+
+                ctx.Ball.Velocity = Vec2.Zero;
+                ctx.Ball.IsOutOfPlay = false;
             }
             else
             {
@@ -597,7 +647,38 @@ namespace FootballSim.Engine.Systems
                     ef: 0f, eb: false, desc: desc));
 
                 LogDebug(ctx, desc);
-                ctx.Ball.IsOutOfPlay = false;   // FIX
+
+                // ── Corner restart: nearest attacker gets the ball ────────────
+                // Corner is taken from the corner flag nearest to where ball went out.
+                bool isLeft = ballPos.X < PhysicsConstants.PITCH_WIDTH * 0.5f;
+                float cornerX = isLeft ? PhysicsConstants.PITCH_LEFT + 5f
+                                            : PhysicsConstants.PITCH_RIGHT - 5f;
+                float cornerY = topByline ? PhysicsConstants.PITCH_TOP + 5f
+                                               : PhysicsConstants.PITCH_BOTTOM - 5f;
+                Vec2 cornerPos = new Vec2(cornerX, cornerY);
+
+                int atkStart = attackingTeam == 0 ? 0 : 11;
+                int atkEnd = attackingTeam == 0 ? 11 : 22;
+                int takerId = -1;
+                float takerDist = float.MaxValue;
+                for (int i = atkStart; i < atkEnd; i++)
+                {
+                    if (!ctx.Players[i].IsActive) continue;
+                    if (ctx.Players[i].Role == PlayerRole.GK ||
+                        ctx.Players[i].Role == PlayerRole.SK) continue;
+                    float d = ctx.Players[i].Position.DistanceTo(cornerPos);
+                    if (d < takerDist) { takerDist = d; takerId = i; }
+                }
+                if (takerId >= 0)
+                {
+                    BallSystem.AssignOwnership(ctx, takerId);
+                    ctx.Players[takerId].Position = cornerPos;
+                    ctx.Players[takerId].TargetPosition = cornerPos;
+                }
+
+                ctx.Ball.Position = cornerPos;
+                ctx.Ball.Velocity = Vec2.Zero;
+                ctx.Ball.IsOutOfPlay = false;
             }
         }
 
