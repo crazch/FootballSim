@@ -621,7 +621,7 @@ namespace FootballSim.Engine.Systems
             // ── Safe recycle bonus ────────────────────────────────────────────
             float senderPressure = ComputeSenderPressure(ref player, ctx);
             float safeRecycleBonus = 0f;
-            if (senderPressure < AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD && isShort)
+            if (senderPressure > AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD && isShort)
                 safeRecycleBonus = AIConstants.PASS_SAFE_RECYCLE_BONUS;
 
             // ── Final score ───────────────────────────────────────────────────
