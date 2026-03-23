@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://5lks3gxen04f"]
+
+[ext_resource type="Script" uid="uid://ceh6peeu8yafx" path="res://Scripts/Debug/DebugScenarioPlayer.cs" id="1_jm7pm"]
+
+[node name="DebugScenarioScene" type="Node2D" unique_id=595018223]
+script = ExtResource("1_jm7pm")

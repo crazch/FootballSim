@@ -76,6 +76,7 @@ using FootballSim.Engine.Models;
 using FootballSim.Engine.Stats;
 using FootballSim.Engine.Systems;
 using FootballSim.Engine.Tactics;
+using FootballSim.Engine.Debug;
 
 namespace FootballSim.Bridge
 {
@@ -90,6 +91,39 @@ namespace FootballSim.Bridge
 	{
 		// ── DEBUG ─────────────────────────────────────────────────────────────
 
+		// ── DEBUG REPLAY STORAGE ─────────────────────────────
+
+		// ── DEBUG SIMULATION ─────────────────────────────
+
+		public void DebugSimulateTwoVTwo(int seed)
+		{
+			
+			var ctx = DebugMatchContext.TwoVTwo(seed);
+
+			var runner = new DebugTickRunner(ctx, 400);
+
+			var frames = new List<DebugTickEntry>();
+
+			for (int i = 0; i < 400; i++)
+			{
+				var entry = runner.Step();
+				frames.Add(entry);
+			}
+
+			Debug_SetReplayFrames(frames);
+		}
+
+		private static List<MatchContext> _debugReplayFrames;
+		private static bool _debugReplayReady = false;
+
+
+		public static void Debug_SetReplayFrames(List<MatchContext> frames)
+		{
+			_debugReplayFrames = frames;
+			_debugReplayReady = true;
+
+			GD.Print("Debug frames received: " + frames.Count);
+		}
 		/// <summary>
 		/// When true, logs every bridge call — SimulateMatch, GetFrame, LoadData —
 		/// to GD.Print so they appear in the Godot Output panel.
@@ -292,10 +326,25 @@ namespace FootballSim.Bridge
 		// =====================================================================
 
 		/// <summary>True after SimulateMatch() completed without error.</summary>
-		public bool IsReplayReady() => _replay != null;
+		public bool IsReplayReady()
+		{
+			if (_debugReplayReady)
+				return true;
+
+			return _replay != null;
+		}
 
 		/// <summary>Total frames recorded. Should be 54000 for a 90-minute match.</summary>
-		public int GetTotalFrames() => _replay?.TotalTicks ?? 0;
+		public int GetTotalFrames()
+		{
+			if (_debugReplayReady && _debugReplayFrames != null)
+				return _debugReplayFrames.Count;
+
+			if (_replay == null)
+				return 0;
+
+			return _replay.Frames.Count;
+		}
 
 		/// <summary>Final home team score.</summary>
 		public int GetFinalHomeScore() => _replay?.FinalHomeScore ?? 0;
@@ -334,50 +383,66 @@ namespace FootballSim.Bridge
 		/// </summary>
 		public Godot.Collections.Dictionary GetFrame(int tick)
 		{
-			if (_replay == null || tick < 0 || tick >= _replay.Frames.Count)
-				return new Godot.Collections.Dictionary();
-
-			ReplayFrame frame = _replay.Frames[tick];
-			var dict = new Godot.Collections.Dictionary();
-
-			// Timing
-			dict["tick"] = frame.Tick;
-			dict["match_second"] = frame.MatchSecond;
-			dict["match_minute"] = frame.MatchMinute;
-			dict["home_score"] = frame.HomeScore;
-			dict["away_score"] = frame.AwayScore;
-			dict["phase"] = (int)frame.Phase;
-
-			// Ball — Vec2 → Vector2
-			dict["ball_pos"] = ToVector2(frame.Ball.Position);
-			dict["ball_phase"] = (int)frame.Ball.Phase;
-			dict["ball_height"] = frame.Ball.Height;
-			dict["ball_owner"] = frame.Ball.OwnerId;
-			dict["ball_is_shot"] = frame.Ball.IsShot;
-
-			// Offside lines — computed by BlockShiftSystem, captured per frame
-			dict["home_offside_y"] = frame.HomeOffsideY;
-			dict["away_offside_y"] = frame.AwayOffsideY;
-
-			// Players — 22 player snapshots
-			var playerArray = new Godot.Collections.Array();
-			for (int i = 0; i < 22; i++)
+			if (_debugReplayReady && _debugReplayFrames != null)
 			{
-				PlayerSnap snap = frame.Players[i];
-				var p = new Godot.Collections.Dictionary();
-				p["position"] = ToVector2(snap.Position);
-				p["stamina"] = snap.Stamina;
-				p["has_ball"] = snap.HasBall;
-				p["action"] = (int)snap.Action;
-				p["is_active"] = snap.IsActive;
-				p["is_sprinting"] = snap.IsSprinting;
-				playerArray.Add(p);
+				if (tick < 0 || tick >= _debugReplayFrames.Count)
+					return new Godot.Collections.Dictionary();
+
+				MatchContext ctx = _debugReplayFrames[tick];
+
+				var d = new Godot.Collections.Dictionary();
+
+				d["tick"] = ctx.Tick;
+				d["match_second"] = ctx.MatchSecond;
+				d["match_minute"] = ctx.MatchMinute;
+				d["home_score"] = ctx.HomeScore;
+				d["away_score"] = ctx.AwayScore;
+				d["phase"] = (int)ctx.Phase;
+
+				d["ball_pos"] =
+					new Vector2(
+						ctx.Ball.Position.X,
+						ctx.Ball.Position.Y
+					);
+
+				d["ball_owner"] = ctx.Ball.OwnerId;
+				d["ball_phase"] = (int)ctx.Ball.Phase;
+				d["ball_height"] = ctx.Ball.Height;
+				d["ball_is_shot"] = ctx.Ball.IsShot;
+
+				d["home_offside_y"] = 0f;
+				d["away_offside_y"] = 0f;
+
+				var players = new Godot.Collections.Array();
+
+				for (int i = 0; i < 22; i++)
+				{
+					PlayerState pState = ctx.Players[i];
+
+					var p = new Godot.Collections.Dictionary();
+
+					p["position"] =
+						new Vector2(
+							pState.Position.X,
+							pState.Position.Y
+						);
+
+					p["stamina"] = pState.Stamina;
+					p["has_ball"] = pState.HasBall;
+					p["action"] = (int)pState.Action;
+					p["is_active"] = pState.IsActive;
+					p["is_sprinting"] = pState.IsSprinting;
+
+					players.Add(p);
+				}
+
+				d["players"] = players;
+
+				return d;
 			}
-			dict["players"] = playerArray;
 
-			return dict;
+			return new Godot.Collections.Dictionary();
 		}
-
 		/// <summary>
 		/// Returns all events for a given tick as a Godot Array of Dictionaries.
 		/// Returns an empty Array if there are no events on that tick (most ticks).

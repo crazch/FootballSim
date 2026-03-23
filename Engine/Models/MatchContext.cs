@@ -142,6 +142,12 @@ namespace FootballSim.Engine.Models
         /// <summary>Same for away team.</summary>
         public int AwayPossessionTicks;
 
+        // ── Debug mode fields (set only by DebugMatchContext, ignored by production) ──
+        public bool DebugMode = false;
+        public int HomeActiveCount = 11;
+        public int AwayActiveCount = 11;
+        public bool ForceLongPassDisabled = false;
+
         // ── Determinism ───────────────────────────────────────────────────────
 
         /// <summary>
@@ -233,6 +239,33 @@ namespace FootballSim.Engine.Models
             AwayShiftX = 0f;
             HomeDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.65f; // sensible default home
             AwayDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.35f; // sensible default away
+        }
+
+        // Parameterless constructor for debug / replay / test contexts.
+        // Allows MatchContext to be created without TeamData when running
+        // headless simulation, editor previews, or unit tests.
+        //
+        // IMPORTANT:
+        // Real matches should use MatchContext(TeamData homeTeam, TeamData awayTeam)
+        // to ensure teams, players, and tactics are properly initialised.
+        // Used in /Engine/DebugMatchContext.cs
+        public MatchContext()
+        {
+            Players = new PlayerState[22];
+            EventsThisTick = new List<MatchEvent>(8);
+            Phase = MatchPhase.PreKickoff;
+            Tick = 0;
+            MatchSecond = 0f;
+            MatchMinute = 0;
+            HomeScore = 0;
+            AwayScore = 0;
+            HomePossessionTicks = 0;
+            AwayPossessionTicks = 0;
+
+            HomeShiftX = 0f;
+            AwayShiftX = 0f;
+            HomeDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.65f;
+            AwayDefLineY = PhysicsConstants.PITCH_HEIGHT * 0.35f;
         }
 
         // ── Helpers (minimal — context is mostly data) ────────────────────────

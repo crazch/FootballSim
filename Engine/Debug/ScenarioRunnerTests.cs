@@ -24,6 +24,7 @@
 using NUnit.Framework;
 using FootballSim.Engine.Debug;
 using FootballSim.Engine.Systems;
+using FootballSim.Engine.Models;
 
 namespace FootballSim.Tests
 {

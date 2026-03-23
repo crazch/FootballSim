@@ -572,7 +572,9 @@ namespace FootballSim.Engine.Systems
                                                MatchContext ctx)
         {
             float dist = player.Position.DistanceTo(receiver.Position);
-            if (dist > AIConstants.PASS_MAX_DISTANCE)
+            bool longPassDisabled = AIConstants.DISABLE_LONG_PASS_OVERRIDE
+                                 || AIConstants.DISABLE_LONG_PASS;
+            if (longPassDisabled && dist > AIConstants.PASS_LONG_THRESHOLD)
                 return new PassCandidate { ReceiverId = -1, Score = 0f };
 
             // Base score from passing ability

@@ -1,0 +1,75 @@
+[gd_scene format=3 uid="uid://bylrga77cbvwg"]
+
+[sub_resource type="CSharpScript" id="CSharpScript_wqqha"]
+script/source = "using Godot;
+using FootballSim.Engine.Debug;
+using FootballSim.Engine.Models;
+
+public partial class DebugPitch2D : Node2D
+{
+    private DebugTickRunner runner;
+    private MatchContext ctx;
+
+    private BallNode ball;
+
+    private Dictionary<int, PlayerNode> players = new();
+
+    public override void _Ready()
+    {
+        ctx = DebugMatchContext.TwoVTwo(seed: 42);
+
+        runner = new DebugTickRunner(ctx, maxTicks: 400);
+
+        CreateVisuals();
+    }
+
+    private void CreateVisuals()
+    {
+        // create ball
+        ball = new BallNode();
+        AddChild(ball);
+
+        // create players
+        foreach (var p in ctx.Players)
+        {
+            var node = new PlayerNode(p.Id);
+            players[p.Id] = node;
+            AddChild(node);
+        }
+    }
+
+    public override void _Process(double delta)
+    {
+        if (runner == null)
+            return;
+
+        var entry = runner.Step();
+
+        UpdateVisuals();
+    }
+
+    private void UpdateVisuals()
+    {
+        // update players
+
+        foreach (var p in ctx.Players)
+        {
+            var node = players[p.Id];
+
+            node.Position = new Vector2(
+                (float)p.Position.X,
+                (float)p.Position.Y
+            );
+        }
+
+        // update ball
+
+        ball.Position = new Vector2(
+            (float)ctx.Ball.Position.X,
+            (float)ctx.Ball.Position.Y
+        );
+    }
+}"
+
+[node name="DebugPitch2D" type="Node2D" unique_id=1018640121]
+script = SubResource("CSharpScript_wqqha")

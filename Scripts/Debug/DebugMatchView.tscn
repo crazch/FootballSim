@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://b2o4hdq0pkx82"]
+
+[ext_resource type="Script" uid="uid://brqevt1afi4n2" path="res://Scripts/Debug/DebugMatchView.gd" id="1_0e1s4"]
+[ext_resource type="Script" uid="uid://bua1usmjanfg5" path="res://Scripts/Visualization/PitchRenderer.gd" id="2_ubk7n"]
+[ext_resource type="Script" uid="uid://1kyigt1ntw38" path="res://Scripts/Visualization/ReplayPlayer.gd" id="3_v7cl1"]
+[ext_resource type="Script" uid="uid://d0x7xljxrxwbw" path="res://Scripts/Visualization/BallDot.gd" id="4_tsndi"]
+
+[node name="DebugMatchView" type="Node2D" unique_id=856087213 node_paths=PackedStringArray("replay_player")]
+script = ExtResource("1_0e1s4")
+replay_player = NodePath("ReplayPlayer")
+
+[node name="PitchRenderer" type="Node2D" parent="." unique_id=1648938917]
+script = ExtResource("2_ubk7n")
+
+[node name="PlayersLayer" type="Node2D" parent="." unique_id=913239191]
+
+[node name="ReplayPlayer" type="Node" parent="." unique_id=968610216 node_paths=PackedStringArray("players_layer", "ball_dot")]
+script = ExtResource("3_v7cl1")
+players_layer = NodePath("../PlayersLayer")
+ball_dot = NodePath("../BallDot")
+
+[node name="BallDot" type="Node2D" parent="." unique_id=2142625577]
+script = ExtResource("4_tsndi")

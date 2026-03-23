@@ -382,6 +382,11 @@ namespace FootballSim.Engine.Systems
         public static readonly bool DISABLE_LONG_PASS = true;
 
         /// <summary>
+        /// Runtime override set by DebugTickRunner. Never true in production.
+        /// </summary>
+        public static bool DISABLE_LONG_PASS_OVERRIDE = false;
+
+        /// <summary>
         /// Minimum ticks a player must remain in Celebrating before returning to normal.
         /// 15 ticks = 1.5 seconds of celebration before the next kickoff evaluation.
         /// </summary>

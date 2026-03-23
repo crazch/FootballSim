@@ -34,6 +34,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using FootballSim.Engine.Systems;
+using FootballSim.Engine.Models;
 
 namespace FootballSim.Engine.Debug
 {
