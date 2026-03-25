@@ -76,6 +76,7 @@ using FootballSim.Engine.Models;
 using FootballSim.Engine.Stats;
 using FootballSim.Engine.Systems;
 using FootballSim.Engine.Tactics;
+using FootballSim.Engine.Debug;
 
 namespace FootballSim.Bridge
 {
@@ -284,6 +285,127 @@ namespace FootballSim.Bridge
 			{
 				_lastError = $"SimulateMatch failed: {ex.Message}";
 				GD.PrintErr($"[MatchEngineBridge] {_lastError}\n{ex.StackTrace}");
+			}
+		}
+
+
+		/// <summary>
+		/// Accepts a pre-built MatchReplay from DebugTickRunner.BuildReplay().
+		/// After this call, GetFrame(), GetFrameEvents(), IsReplayReady(), etc.
+		/// all work exactly as they do after SimulateMatch() — ReplayPlayer.gd
+		/// reads debug replays with zero code changes.
+		///
+		/// Called by SimulateDebugScenario() and optionally from C# test code.
+		/// GDScript should call SimulateDebugScenario() instead.
+		/// </summary>
+		public void LoadExternalReplay(MatchReplay replay)
+		{
+			if (replay == null)
+			{
+				_lastError = "LoadExternalReplay: replay was null. " +
+							 "Did DebugTickRunner.Run() complete before BuildReplay()?";
+				GD.PrintErr(_lastError);
+				return;
+			}
+
+			_replay = replay;
+			_lastError = "";
+
+			if (OS.IsDebugBuild())
+				GD.Print($"[Bridge] Debug replay loaded: {replay.TotalTicks} ticks, " +
+						 $"score {replay.FinalHomeScore}–{replay.FinalAwayScore}");
+		}
+
+		/// <summary>
+		/// Builds a debug scenario MatchContext, runs it, and loads the result
+		/// as a replay that ReplayPlayer.gd can read immediately.
+		///
+		/// Called from DebugMatchView.gd instead of SimulateMatch().
+		/// ReplayPlayer.gd, GetFrame(), GetFrameEvents() are untouched.
+		///
+		/// Supported scenarioName values (must match DebugMatchContext method names):
+		///   "1v1"              → OneVOne
+		///   "2v2"              → TwoVTwo
+		///   "3v3_short"        → ThreeVThreeShortPass
+		///   "3v3_long"         → ThreeVThreeLongPass
+		///
+		/// maxTicks: how many ticks to simulate. 600 = 60 seconds of match time.
+		/// </summary>
+		public void SimulateDebugScenario(string scenarioName, int seed = 42,
+										   int maxTicks = 600)
+		{
+			_replay = null;
+			_lastError = "";
+
+			try
+			{
+				// ── 1. Build the scenario context ──────────────────────────────────
+				FootballSim.Engine.Models.MatchContext ctx = scenarioName switch
+				{
+					"1v1" => DebugMatchContext.OneVOne(seed),
+					"2v2" => DebugMatchContext.TwoVTwo(seed),
+					"3v3_short" => DebugMatchContext.ThreeVThreeShortPass(seed),
+					"3v3_long" => DebugMatchContext.ThreeVThreeLongPass(seed),
+					_ => throw new ArgumentException(
+										 $"Unknown debug scenario: '{scenarioName}'. " +
+										 "Valid values: 1v1, 2v2, 3v3_short, 3v3_long")
+				};
+
+				// ── 2. Force Debug Mode on the Context ─────────────────────────────
+				// Most AI Systems check 'if (ctx.DebugMode)' before printing.
+				// If this is false, ProfileTwoVTwo() flags are ignored.
+				ctx.DebugMode = true;
+
+				// ── 3. Activate Specific System Flags ──────────────────────────────
+				if (scenarioName == "2v2")
+				{
+					FootballSim.Engine.Debug.DebugLogger.ProfileTwoVTwo();
+					GD.Print("[Bridge] Internal Profiler engaged for 2v2 (ST vs CB).");
+				}
+				else if (scenarioName == "1v1")
+				{
+					// Basic debug logs for 1v1
+					ctx.DebugMode = true;
+				}
+
+				// ── 4. Run the simulation ──────────────────────────────────────────
+				var runner = new DebugTickRunner(ctx, maxTicks)
+				{
+					CaptureFrames = true
+				};
+
+				// Perform the simulation
+				runner.Run();
+
+				// ── 5. Convert to MatchReplay and load ─────────────────────────────
+				var replay = runner.BuildReplay();
+				if (replay == null)
+				{
+					_lastError = $"SimulateDebugScenario('{scenarioName}'): " +
+								 "BuildReplay() returned null — no frames captured.";
+					GD.PrintErr(_lastError);
+					return;
+				}
+
+				LoadExternalReplay(replay);
+
+				// ── 6. Final Output ────────────────────────────────────────────────
+				if (OS.IsDebugBuild())
+				{
+					GD.Print($"[Bridge] SimulateDebugScenario '{scenarioName}' complete.");
+
+					// This prints the per-tick summary if the runner captured it
+					runner.PrintSummary();
+
+					// If your engine uses an extension to flush logs to Godot, call it:
+					// FootballSim.Engine.Debug.EngineDebugLogger_ScenarioExtensions.FlushToGodot();
+				}
+			}
+			catch (Exception ex)
+			{
+				_lastError = $"SimulateDebugScenario('{scenarioName}') exception: {ex.Message}";
+				GD.PrintErr(_lastError);
+				GD.PrintErr(ex.StackTrace);
 			}
 		}
 

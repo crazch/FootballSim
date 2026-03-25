@@ -1,0 +1,182 @@
+[gd_scene format=3 uid="uid://lwl3fy4us2rp"]
+
+[ext_resource type="Script" uid="uid://brqevt1afi4n2" path="res://Scripts/Debug/DebugMatchView.gd" id="1_0r3xi"]
+[ext_resource type="Script" uid="uid://bua1usmjanfg5" path="res://Scripts/Visualization/PitchRenderer.gd" id="2_8dsnj"]
+[ext_resource type="Script" uid="uid://b2rsbyu1yjg2i" path="res://Scripts/Visualization/PlayerDot.gd" id="3_7yibu"]
+[ext_resource type="Script" uid="uid://d0x7xljxrxwbw" path="res://Scripts/Visualization/BallDot.gd" id="4_mtug7"]
+[ext_resource type="Script" uid="uid://1kyigt1ntw38" path="res://Scripts/Visualization/ReplayPlayer.gd" id="5_6mfib"]
+[ext_resource type="Script" uid="uid://c3vs74kh81yef" path="res://Scripts/UI/HUD.gd" id="6_7yibu"]
+
+[node name="DebugMatchView" type="Node2D" unique_id=824818335]
+script = ExtResource("1_0r3xi")
+
+[node name="PitchRenderer" type="Node2D" parent="." unique_id=709224879]
+script = ExtResource("2_8dsnj")
+
+[node name="PlayersLayer" type="Node2D" parent="." unique_id=118803787]
+script = ExtResource("3_7yibu")
+
+[node name="BallDot" type="Node2D" parent="." unique_id=225094575]
+script = ExtResource("4_mtug7")
+
+[node name="ReplayPlayer" type="Node" parent="." unique_id=2124834883]
+script = ExtResource("5_6mfib")
+
+[node name="DebugPanel" type="CanvasLayer" parent="." unique_id=793874014]
+
+[node name="VBox" type="VBoxContainer" parent="DebugPanel" unique_id=991050029]
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -121.0
+offset_top = -84.0
+offset_bottom = 84.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="ScenarioPicker" type="OptionButton" parent="DebugPanel/VBox" unique_id=2035551777]
+layout_mode = 2
+
+[node name="SeedInput" type="SpinBox" parent="DebugPanel/VBox" unique_id=1573956492]
+layout_mode = 2
+max_value = 999999.0
+
+[node name="RunButton" type="Button" parent="DebugPanel/VBox" unique_id=797618498]
+layout_mode = 2
+text = "Run Scenario"
+
+[node name="Debug Scenario" type="Label" parent="DebugPanel/VBox" unique_id=288865430]
+layout_mode = 2
+text = "Debug Scenario"
+
+[node name="StatusLabel" type="Label" parent="DebugPanel/VBox" unique_id=2002871214]
+layout_mode = 2
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1588690103 node_paths=PackedStringArray("home_score_label", "away_score_label", "clock_label", "phase_label", "speed_label", "home_xg_label", "away_xg_label", "home_poss_label", "away_poss_label", "xg_bar", "poss_bar", "stamina_warning", "stamina_label")]
+layer = 10
+script = ExtResource("6_7yibu")
+home_score_label = NodePath("TopBar/TopBarHBox/HomeScoreLabel")
+away_score_label = NodePath("TopBar/TopBarHBox/AwayScoreLabel")
+clock_label = NodePath("TopBar/TopBarHBox/ClockLabel")
+phase_label = NodePath("TopBar/TopBarHBox/PhaseLabel")
+speed_label = NodePath("TopBar/TopBarHBox/SpeedLabel")
+home_xg_label = NodePath("StatsBar/StatsHBox/HomeXGLabel")
+away_xg_label = NodePath("StatsBar/StatsHBox/AwayXGLabel")
+home_poss_label = NodePath("StatsBar/StatsHBox/HomePossLabel")
+away_poss_label = NodePath("StatsBar/StatsHBox/AwayPossLabel")
+xg_bar = NodePath("StatsBar/StatsHBox/XGBar")
+poss_bar = NodePath("StatsBar/StatsHBox/PossBar")
+stamina_warning = NodePath("StaminaWarning")
+stamina_label = NodePath("StaminaWarning/StaminaLabel")
+
+[node name="TopBar" type="PanelContainer" parent="HUD" unique_id=1999268631]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 48.0
+grow_horizontal = 2
+
+[node name="TopBarHBox" type="HBoxContainer" parent="HUD/TopBar" unique_id=121932196]
+layout_mode = 2
+
+[node name="HomeScoreLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=882059006]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "0"
+horizontal_alignment = 1
+
+[node name="ScoreSep" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=1120935726]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = " – "
+
+[node name="AwayScoreLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=1020536506]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "0"
+horizontal_alignment = 1
+
+[node name="HSpacer" type="Control" parent="HUD/TopBar/TopBarHBox" unique_id=1034849276]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ClockLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=645707128]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "0:00"
+horizontal_alignment = 1
+
+[node name="HSpacer2" type="Control" parent="HUD/TopBar/TopBarHBox" unique_id=1551272729]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PhaseLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=535598652]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+
+[node name="SpeedLabel" type="Label" parent="HUD/TopBar/TopBarHBox" unique_id=912561624]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "1×"
+
+[node name="StatsBar" type="PanelContainer" parent="HUD" unique_id=401646345]
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 48.0
+offset_bottom = 76.0
+grow_horizontal = 2
+
+[node name="StatsHBox" type="HBoxContainer" parent="HUD/StatsBar" unique_id=1666322285]
+layout_mode = 2
+
+[node name="HomeXGLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1173951845]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "xG 0.00"
+
+[node name="XGBar" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=1063178287]
+custom_minimum_size = Vector2(100, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AwayXGLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1800082445]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "xG 0.00"
+
+[node name="StatsSpacer" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=2088139714]
+custom_minimum_size = Vector2(16, 0)
+layout_mode = 2
+
+[node name="HomePossLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=1793039519]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "50%"
+
+[node name="PossBar" type="Control" parent="HUD/StatsBar/StatsHBox" unique_id=590236090]
+custom_minimum_size = Vector2(100, 12)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AwayPossLabel" type="Label" parent="HUD/StatsBar/StatsHBox" unique_id=947594169]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "50%"
+
+[node name="StaminaWarning" type="PanelContainer" parent="HUD" unique_id=867137762]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 76.0
+offset_right = 200.0
+offset_bottom = 96.0
+grow_horizontal = 0
+
+[node name="StaminaLabel" type="Label" parent="HUD/StaminaWarning" unique_id=773102046]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
