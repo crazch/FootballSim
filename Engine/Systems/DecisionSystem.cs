@@ -85,6 +85,42 @@ namespace FootballSim.Engine.Systems
         public float PassHeight;       // 0=ground, 0.5=driven, 1.0=lofted
         public float Score;            // winning utility score [0,1]
         public float XG;              // populated when Action==Shooting
+
+        // ── NEW: with-ball score breakdown ────────────────────────────────────
+        // Populated by EvaluateWithBall. Zero when player does not have ball.
+
+        /// <summary>True when score breakdown fields were populated this evaluation.</summary>
+        public bool HasScoreBreakdown;
+        public float ScoreShoot;
+        public float ScorePass;
+        public float ScoreDribble;
+        public float ScoreCross;
+        public float ScoreHold;
+
+        // Shoot detail — why was xG what it was?
+        public float ShootXG;   // computed xG at this position
+        public float ShootEffectiveThreshold;   // xG must exceed this to shoot
+        public int ShootBlockersInLane;        // defenders in shooting lane
+        public float ShootDistToGoal;            // for quick reference
+
+        // Pass detail — best receiver context
+        public bool PassIsProgressive;          // receiver is further forward
+        public float PassDistance;               // distance to best receiver
+        public float PassReceiverPressure;       // pressure on best receiver [0-1]
+
+        // ── NEW: out-of-possession score breakdown ────────────────────────────
+        // Populated by EvaluateOutOfPossession. Zero when player has ball.
+        /// <summary>True when defensive context fields were populated.</summary>
+
+        public bool HasDefensiveContext;
+
+        public float ScorePress;
+        public float ScoreTrack;
+        public float ScoreRecover;
+        public float ScoreMarkSpace;
+        public int TrackTargetPlayerId;     // -1 if not tracking
+        public float DistToCarrier;     // distance to ball carrier
+        public float PressTriggerDist;      // press trigger radius this tick
     }
 
     /// <summary>Score result for one specific pass receiver candidate.</summary>
@@ -94,6 +130,11 @@ namespace FootballSim.Engine.Systems
         public float Score;
         public float PassSpeed;
         public float PassHeight;
+
+        // ── Breakdown fields (populated by ScorePass for ActionPlan) ──────────
+        public bool IsProgressive;
+        public float Distance;
+        public float ReceiverPressure;
     }
 
     /// <summary>Score result for a shot attempt.</summary>
@@ -102,6 +143,28 @@ namespace FootballSim.Engine.Systems
         public float Score;
         public float XG;
         public Vec2 TargetPosition;  // aim point inside goal
+
+        // ── Breakdown fields (populated by ScoreShoot for ActionPlan) ────────
+        public float EffectiveThreshold;
+        public int BlockersInLane;
+        public float DistToGoal;
+    }
+
+    /// <summary>Score result for pressing the ball carrier.</summary>
+    public struct PressScore
+    {
+        public Vec2 TargetPosition;
+        public float Score;
+        public float DistToCarrier;
+        public float PressTriggerDist;
+    }
+
+    /// <summary>Score result for tracking an opponent.</summary>
+    public struct TrackScore
+    {
+        public Vec2 TargetPosition;
+        public float Score;
+        public int TargetPlayerId;  // -1 if no target
     }
 
     // =========================================================================
@@ -144,10 +207,17 @@ namespace FootballSim.Engine.Systems
             best.PassReceiverId = -1;
             best.Score = -1f;
 
+            // Keep references to all scores for breakdown storage
+            ShotScore shot = default;
+            PassCandidate bestPass = default;
+            float crossScore = -1f;
+            float dribScore = -1f;
+            float holdScore = -1f;
+
             // ── Score each option ──────────────────────────────────────────────
 
             // 1. SHOOT
-            ShotScore shot = ScoreShoot(ref player, role, tactics, ctx);
+            shot = ScoreShoot(ref player, role, tactics, ctx);
             if (shot.Score > best.Score)
             {
                 best.Score = shot.Score;
@@ -159,7 +229,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 2. PASS (best receiver)
-            PassCandidate bestPass = ScoreBestPass(ref player, role, tactics, ctx);
+            bestPass = ScoreBestPass(ref player, role, tactics, ctx);
             if (bestPass.Score > best.Score && bestPass.ReceiverId >= 0)
             {
                 best.Score = bestPass.Score;
@@ -171,7 +241,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 3. CROSS (if wide enough)
-            float crossScore = ScoreCross(ref player, role, tactics, ctx);
+            crossScore = ScoreCross(ref player, role, tactics, ctx);
             if (crossScore > best.Score)
             {
                 best.Score = crossScore;
@@ -181,7 +251,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 4. DRIBBLE
-            float dribScore = ScoreDribble(ref player, role, tactics, ctx);
+            dribScore = ScoreDribble(ref player, role, tactics, ctx);
             if (dribScore > best.Score)
             {
                 best.Score = dribScore;
@@ -191,7 +261,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 5. HOLD
-            float holdScore = ScoreHold(ref player, role, tactics, ctx);
+            holdScore = ScoreHold(ref player, role, tactics, ctx);
             if (holdScore > best.Score)
             {
                 best.Score = holdScore;
@@ -207,6 +277,25 @@ namespace FootballSim.Engine.Systems
                 best.TargetPosition = player.Position;
                 best.Score = 0f;
             }
+
+            // ── Populate with-ball score breakdown for ActionPlan ──────────────
+            best.HasScoreBreakdown = true;
+            best.ScoreShoot = shot.Score;
+            best.ScorePass = bestPass.Score;
+            best.ScoreDribble = dribScore;
+            best.ScoreCross = crossScore;
+            best.ScoreHold = holdScore;
+
+            // Shoot detail (already computed in ScoreShoot):
+            best.ShootXG = shot.XG;
+            best.ShootEffectiveThreshold = shot.EffectiveThreshold;
+            best.ShootBlockersInLane = shot.BlockersInLane;
+            best.ShootDistToGoal = shot.DistToGoal;
+
+            // Pass detail:
+            best.PassIsProgressive = bestPass.IsProgressive;
+            best.PassDistance = bestPass.Distance;
+            best.PassReceiverPressure = bestPass.ReceiverPressure;
 
             DebugLogWithBall(ref player, ref best, shot, bestPass, crossScore, dribScore, holdScore);
             return best;
@@ -312,8 +401,14 @@ namespace FootballSim.Engine.Systems
             best.PassReceiverId = -1;
             best.Score = -1f;
 
+            // Keep track of scores for breakdown storage
+            PressScore press = default;
+            TrackScore track = default;
+            float recoverScore = -1f;
+            float markScore = -1f;
+
             // 1. PRESS
-            var press = ScorePress(ref player, role, tactics, ctx);
+            press = ScorePress(ref player, role, tactics, ctx);
             if (press.Score > best.Score)
             {
                 best.Score = press.Score;
@@ -323,7 +418,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 2. TRACK runner
-            var track = ScoreTrack(ref player, role, tactics, ctx);
+            track = ScoreTrack(ref player, role, tactics, ctx);
             if (track.Score > best.Score)
             {
                 best.Score = track.Score;
@@ -333,7 +428,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 3. RECOVER to shape
-            float recoverScore = ScoreRecover(ref player, role, tactics, ctx);
+            recoverScore = ScoreRecover(ref player, role, tactics, ctx);
             if (recoverScore > best.Score)
             {
                 best.Score = recoverScore;
@@ -343,7 +438,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // 4. MARK SPACE (zone cover)
-            float markScore = ScoreMarkSpace(ref player, role, tactics, ctx);
+            markScore = ScoreMarkSpace(ref player, role, tactics, ctx);
             Vec2 markTarget = ComputeMarkSpaceTarget(ref player, tactics, ctx);
             if (markScore > best.Score)
             {
@@ -360,6 +455,16 @@ namespace FootballSim.Engine.Systems
                 best.TargetPosition = ComputeDefensiveAnchor(ref player, tactics, ctx);
                 best.Score = 0f;
             }
+
+            // ── Populate defensive context breakdown for ActionPlan ────────────
+            best.HasDefensiveContext = true;
+            best.ScorePress = press.Score;
+            best.ScoreTrack = track.Score;
+            best.ScoreRecover = recoverScore;
+            best.ScoreMarkSpace = markScore;
+            best.TrackTargetPlayerId = track.TargetPlayerId;
+            best.DistToCarrier = press.DistToCarrier;
+            best.PressTriggerDist = press.PressTriggerDist;
 
             DebugLogOutOfPossession(ref player, ref best);
             return best;
@@ -519,6 +624,9 @@ namespace FootballSim.Engine.Systems
             // Find best aim point (slight offset from GK to increase chance of scoring)
             Vec2 aimPoint = ComputeGoalAimPoint(ref player, goalCentre, ctx);
 
+            // Count blockers in lane for debug context
+            int blockersInLane = CountBlockersInShootingLane(ref player, goalCentre, player.TeamId, ctx);
+
             if (DEBUG && (DEBUG_PLAYER_ID < 0 || DEBUG_PLAYER_ID == player.PlayerId))
                 Console.WriteLine($"[DecisionSystem] Tick {ctx.Tick}: P{player.PlayerId} " +
                     $"SHOOT score={finalScore:F3} xG={xG:F3} dist={distToGoal:F0} " +
@@ -529,6 +637,9 @@ namespace FootballSim.Engine.Systems
                 Score = finalScore,
                 XG = xG,
                 TargetPosition = aimPoint,
+                EffectiveThreshold = effectiveThreshold,
+                BlockersInLane = blockersInLane,
+                DistToGoal = distToGoal,
             };
         }
 
@@ -640,6 +751,9 @@ namespace FootballSim.Engine.Systems
                 Score = score,
                 PassSpeed = speed,
                 PassHeight = height,
+                IsProgressive = isProgressive,
+                Distance = dist,
+                ReceiverPressure = pressure,
             };
         }
 
@@ -876,7 +990,7 @@ namespace FootballSim.Engine.Systems
         /// Scores pressing the ball carrier or a nearby opponent.
         /// Accounts for press trigger distance, stamina, role press bias, tactics.
         /// </summary>
-        public static (Vec2 TargetPosition, float Score) ScorePress(
+        public static PressScore ScorePress(
             ref PlayerState player, RoleDefinition role, TacticsInput tactics, MatchContext ctx)
         {
             // Compute press trigger distance from tactics
@@ -888,16 +1002,17 @@ namespace FootballSim.Engine.Systems
 
             // Find press target: the ball carrier
             if (ctx.Ball.OwnerId < 0 || ctx.Ball.Phase != BallPhase.Owned)
-                return (player.FormationAnchor, 0f);
+                return new PressScore { TargetPosition = player.FormationAnchor, Score = 0f, DistToCarrier = 0f, PressTriggerDist = triggerDist };
 
             ref PlayerState carrier = ref ctx.Players[ctx.Ball.OwnerId];
             if (carrier.TeamId == player.TeamId)
-                return (player.FormationAnchor, 0f); // don't press your own team
+                return new PressScore { TargetPosition = player.FormationAnchor, Score = 0f, DistToCarrier = 0f, PressTriggerDist = triggerDist }; // don't press your own team
 
             float distToCarrier = player.Position.DistanceTo(carrier.Position);
 
             // Outside trigger zone — don't press
-            if (distToCarrier > triggerDist) return (player.FormationAnchor, 0f);
+            if (distToCarrier > triggerDist)
+                return new PressScore { TargetPosition = player.FormationAnchor, Score = 0f, DistToCarrier = distToCarrier, PressTriggerDist = triggerDist };
 
             // Stamina gate: press willingness decays below collapse threshold
             float staminaFactor = player.Stamina >= AIConstants.PRESS_STAMINA_THRESHOLD
@@ -921,14 +1036,20 @@ namespace FootballSim.Engine.Systems
                     $"PRESS score={score:F3} dist={distToCarrier:F0} trigger={triggerDist:F0} " +
                     $"stamina={player.Stamina:F2} factor={staminaFactor:F2}");
 
-            return (carrier.Position, score);
+            return new PressScore
+            {
+                TargetPosition = carrier.Position,
+                Score = score,
+                DistToCarrier = distToCarrier,
+                PressTriggerDist = triggerDist,
+            };
         }
 
         /// <summary>
         /// Scores tracking the most dangerous opposing runner.
         /// Returns the target player ID and intercept position.
         /// </summary>
-        public static (Vec2 TargetPosition, float Score) ScoreTrack(
+        public static TrackScore ScoreTrack(
             ref PlayerState player, RoleDefinition role, TacticsInput tactics, MatchContext ctx)
         {
             int opponentStart = player.TeamId == 0 ? 11 : 0;
@@ -936,6 +1057,7 @@ namespace FootballSim.Engine.Systems
 
             float bestDanger = 0f;
             Vec2 bestTarget = player.FormationAnchor;
+            int bestTargetPlayerId = -1;
 
             for (int i = opponentStart; i < opponentEnd; i++)
             {
@@ -951,6 +1073,7 @@ namespace FootballSim.Engine.Systems
                 if (danger > bestDanger && danger > AIConstants.MARK_DANGER_THRESHOLD)
                 {
                     bestDanger = danger;
+                    bestTargetPlayerId = opp.PlayerId;
                     // Anticipate: target is ahead of runner, not on them
                     Vec2 runDir = opp.Velocity.LengthSquared() > 0.01f
                         ? opp.Velocity.Normalized() : Vec2.Zero;
@@ -959,13 +1082,18 @@ namespace FootballSim.Engine.Systems
             }
 
             if (bestDanger <= AIConstants.MARK_DANGER_THRESHOLD)
-                return (player.FormationAnchor, 0f);
+                return new TrackScore { TargetPosition = player.FormationAnchor, Score = 0f, TargetPlayerId = -1 };
 
             float roleBias = role.TackleCommitTendency;
             float blended = BlendRoleWithInstinct(roleBias, player.DefendingAbility,
                                                     tactics.FreedomLevel);
 
-            return (bestTarget, MathF.Min(1f, blended * bestDanger));
+            return new TrackScore
+            {
+                TargetPosition = bestTarget,
+                Score = MathF.Min(1f, blended * bestDanger),
+                TargetPlayerId = bestTargetPlayerId,
+            };
         }
 
         /// <summary>

@@ -182,5 +182,8 @@ namespace FootballSim.Engine.Models
         /// Engine reads from here only — never from UI directly.
         /// </summary>
         public TacticsInput Tactics;
+
+        // Currently AttacksDownward not intialized!
+        public bool AttacksDownward;
     }
 }

@@ -212,6 +212,16 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public int KickoffTeam = 0;
 
+        // ── Debug capture ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The ActionPlan PlayerAI applied to each player this tick.
+        /// Written by PlayerAI.ApplyPlan, read by DebugLogger.Capture.
+        /// Index = player array index (0–21). Null entries = inactive or cooldown tick.
+        /// Only populated when ctx.DebugMode = true (avoids allocation in production).
+        /// </summary>
+        public ActionPlan?[] LastAppliedPlans = new ActionPlan?[22];
+
         // ── Constructor ───────────────────────────────────────────────────────
 
         /// <summary>

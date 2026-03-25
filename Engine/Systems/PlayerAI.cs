@@ -286,6 +286,10 @@ namespace FootballSim.Engine.Systems
                     $"(Team{player.TeamId} {player.Role}) → {plan.Action} " +
                     $"target={plan.TargetPosition} score={plan.Score:F3}");
             }
+
+            // Store plan for DebugLogger if debugging
+            if (ctx.DebugMode)
+                ctx.LastAppliedPlans[player.PlayerId] = plan;
         }
 
         // ── Sprint Flag ───────────────────────────────────────────────────────

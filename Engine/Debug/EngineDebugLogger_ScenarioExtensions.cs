@@ -41,7 +41,7 @@ namespace FootballSim.Engine.Debug
     /// Static convenience wrapper for all per-system DEBUG flags.
     /// Allows targeted logging without editing individual system files.
     /// </summary>
-    public static class DebugLogger
+    public static partial class DebugLogger
     {
         // ── Enable profiles ───────────────────────────────────────────────────
 
@@ -53,12 +53,12 @@ namespace FootballSim.Engine.Debug
         public static void EnableAll(int playerId = -1)
         {
             SetPlayerId(playerId);
-            CollisionSystem.DEBUG    = true;
-            PlayerAI.DEBUG           = true;
-            BallSystem.DEBUG         = true;
-            DecisionSystem.DEBUG     = true;
-            MovementSystem.DEBUG     = true;
-            BlockShiftSystem.DEBUG   = true;
+            CollisionSystem.DEBUG = true;
+            PlayerAI.DEBUG = true;
+            BallSystem.DEBUG = true;
+            DecisionSystem.DEBUG = true;
+            MovementSystem.DEBUG = true;
+            BlockShiftSystem.DEBUG = true;
         }
 
         /// <summary>
@@ -113,17 +113,17 @@ namespace FootballSim.Engine.Debug
         /// </summary>
         public static void DisableAll()
         {
-            CollisionSystem.DEBUG  = false;
-            PlayerAI.DEBUG         = false;
-            BallSystem.DEBUG       = false;
-            DecisionSystem.DEBUG   = false;
-            MovementSystem.DEBUG   = false;
+            CollisionSystem.DEBUG = false;
+            PlayerAI.DEBUG = false;
+            BallSystem.DEBUG = false;
+            DecisionSystem.DEBUG = false;
+            MovementSystem.DEBUG = false;
             BlockShiftSystem.DEBUG = false;
 
             // Reset player ID filters to "log all" (non-intrusive default)
-            CollisionSystem.DEBUG_PLAYER_ID  = -1;
-            PlayerAI.DEBUG_PLAYER_ID         = -1;
-            DecisionSystem.DEBUG_PLAYER_ID   = -1;
+            CollisionSystem.DEBUG_PLAYER_ID = -1;
+            PlayerAI.DEBUG_PLAYER_ID = -1;
+            DecisionSystem.DEBUG_PLAYER_ID = -1;
         }
 
         // ── Recommended debug profiles per scenario ───────────────────────────
@@ -139,9 +139,9 @@ namespace FootballSim.Engine.Debug
         {
             DisableAll();
             SetPlayerId(0);  // home striker
-            DecisionSystem.DEBUG  = true;   // see shoot score vs hold score
+            DecisionSystem.DEBUG = true;   // see shoot score vs hold score
             CollisionSystem.DEBUG = true;   // see GK save probability
-            BallSystem.DEBUG      = true;   // see ShotOnTarget + phase transitions
+            BallSystem.DEBUG = true;   // see ShotOnTarget + phase transitions
         }
 
         /// <summary>
@@ -156,9 +156,9 @@ namespace FootballSim.Engine.Debug
             DisableAll();
             // Can only set one player ID filter — use the attacker (most informative)
             SetPlayerId(0);
-            DecisionSystem.DEBUG  = true;   // see dribble score: is it 0 in the dead zone?
+            DecisionSystem.DEBUG = true;   // see dribble score: is it 0 in the dead zone?
             CollisionSystem.DEBUG = true;   // see tackle probability and cooldown
-            PlayerAI.DEBUG        = true;   // see action chosen + sprint flag
+            PlayerAI.DEBUG = true;   // see action chosen + sprint flag
         }
 
         /// <summary>
@@ -173,17 +173,17 @@ namespace FootballSim.Engine.Debug
             DisableAll();
             // No player filter — need to see all 6 players
             DecisionSystem.DEBUG_PLAYER_ID = -1;
-            DecisionSystem.DEBUG           = true;
-            BallSystem.DEBUG               = true;
+            DecisionSystem.DEBUG = true;
+            BallSystem.DEBUG = true;
         }
 
         // ── Private helper ────────────────────────────────────────────────────
 
         private static void SetPlayerId(int id)
         {
-            CollisionSystem.DEBUG_PLAYER_ID  = id;
-            PlayerAI.DEBUG_PLAYER_ID         = id;
-            DecisionSystem.DEBUG_PLAYER_ID   = id;
+            CollisionSystem.DEBUG_PLAYER_ID = id;
+            PlayerAI.DEBUG_PLAYER_ID = id;
+            DecisionSystem.DEBUG_PLAYER_ID = id;
             // MovementSystem and BallSystem don't have player ID filters
         }
     }
