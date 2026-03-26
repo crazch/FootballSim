@@ -116,6 +116,160 @@ namespace FootballSim.Bridge
 				GD.Print($"[MatchEngineBridge] Debug flags set: enabled={enabled}, filterPlayerId={filterPlayerId}");
 		}
 
+		/// <summary>
+		/// Configure a capture range for production simulation. When enabled,
+		/// MatchEngine will only print system DEBUG output and capture TickLogs
+		/// for ticks in [startTick..endTick). Call this BEFORE starting a
+		/// simulation (Bridge.SimulateMatch()).
+		/// </summary>
+		public void SetDebugCaptureRange(int startTick, int endTick, string captureMode = "Light")
+		{
+			MatchEngine.DebugCaptureEnabled = true;
+			MatchEngine.DebugCaptureStart = Math.Max(0, startTick);
+			MatchEngine.DebugCaptureEnd = Math.Max(MatchEngine.DebugCaptureStart + 1, endTick);
+			switch (captureMode.ToLower())
+			{
+				case "full":
+					MatchEngine.DebugCaptureMode = FootballSim.Engine.Debug.DebugCaptureMode.Full;
+					break;
+				default:
+					MatchEngine.DebugCaptureMode = FootballSim.Engine.Debug.DebugCaptureMode.Light;
+					break;
+			}
+			if (DEBUG)
+				GD.Print($"[MatchEngineBridge] Debug capture range set: {MatchEngine.DebugCaptureStart}..{MatchEngine.DebugCaptureEnd} mode={MatchEngine.DebugCaptureMode}");
+		}
+
+		/// <summary>
+		/// Disable capture range and stop collecting TickLogs in MatchEngine.
+		/// </summary>
+		public void ClearDebugCaptureRange()
+		{
+			MatchEngine.DebugCaptureEnabled = false;
+			MatchEngine.DebugCaptureStart = 0;
+			MatchEngine.DebugCaptureEnd = 0;
+			if (DEBUG) GD.Print("[MatchEngineBridge] Debug capture range cleared");
+		}
+
+		/// <summary>
+		/// Returns JSON for TickLogs captured during the last production simulation
+		/// (the capture range must have been enabled prior to SimulateMatch()).
+		/// Pass null or empty array to export all players.
+		/// </summary>
+		public string ExportCapturedDebugJSON(int[] playerIds = null!)
+		{
+			try
+			{
+				var logs = MatchEngine.GetCapturedTickLogs();
+				if (logs == null || logs.Count == 0)
+				{
+					if (DEBUG) GD.Print("[MatchEngineBridge] ExportCapturedDebugJSON: no captured logs");
+					return "[]";
+				}
+
+				var query = FootballSim.Engine.Debug.DebugLogger.Query(logs);
+				if (playerIds != null && playerIds.Length > 0)
+					return query.Where(p => System.Array.IndexOf(playerIds, p.PlayerId) >= 0).ToJson();
+				return query.ToJson();
+			}
+			catch (Exception ex)
+			{
+				_lastError = $"ExportCapturedDebugJSON failed: {ex.Message}";
+				GD.PrintErr($"[MatchEngineBridge] {_lastError}");
+				return "{}";
+			}
+		}
+
+		/// <summary>
+		/// Run a short DebugTickRunner for ticks [0..endTick) and export JSON for
+		/// the requested sub-range [startTick..endTick]. This does NOT replace
+		/// production `SimulateMatch()` — it's a separate short-run used only
+		/// for structured debug exports. Call from GDScript after a normal
+		/// `Bridge.SimulateMatch()` if you want a JSON snapshot for LLM analysis.
+		/// </summary>
+		public string ExportDebugJSONRange(Godot.Collections.Dictionary homeTeamDict,
+									 Godot.Collections.Dictionary awayTeamDict,
+									 int seed,
+									 int startTick,
+									 int endTick,
+									 string captureMode = "Light",
+									 Godot.Collections.Array playerIds = null!)
+		{
+			_lastError = string.Empty;
+			try
+			{
+				if (endTick <= 0 || endTick <= startTick)
+				{
+					_lastError = "ExportDebugJSONRange: invalid tick range";
+					GD.PrintErr($"[MatchEngineBridge] {_lastError}");
+					return "{}";
+				}
+
+				// Parse capture mode
+				var debugMode = captureMode.ToLower() switch
+				{
+					"light" => FootballSim.Engine.Debug.DebugCaptureMode.Light,
+					"full" => FootballSim.Engine.Debug.DebugCaptureMode.Full,
+					_ => FootballSim.Engine.Debug.DebugCaptureMode.Light
+				};
+
+				// Parse team data into engine types
+				TeamData homeTeam = ParseTeamData(homeTeamDict, teamId: 0);
+				TeamData awayTeam = ParseTeamData(awayTeamDict, teamId: 1);
+
+				// Create a production MatchContext seeded identically to the main run.
+				var ctx = new FootballSim.Engine.Models.MatchContext(homeTeam, awayTeam);
+				ctx.RandomSeed = seed;
+				ctx.Random = new System.Random(seed);
+				ctx.DebugMode = true;
+
+				// Run DebugTickRunner for the requested endTick. CaptureFrames=false
+				// since we only need TickLogs for JSON export.
+				var runner = new FootballSim.Engine.Debug.DebugTickRunner(ctx, maxTicks: endTick, captureMode: debugMode)
+				{
+					CaptureFrames = false
+				};
+
+				runner.Run();
+
+				var allLogs = runner.TickLogs;
+				if (allLogs == null || allLogs.Count == 0)
+				{
+					if (DEBUG) GD.Print("[MatchEngineBridge] ExportDebugJSONRange: no tick logs captured");
+					return "[]";
+				}
+
+				// Build sub-range list
+				int start = Math.Max(0, startTick);
+				int end = Math.Min(endTick, allLogs.Count);
+				var slice = allLogs.Skip(start).Take(end - start).ToList();
+
+				// Convert playerIds if provided
+				int[]? pids = null;
+				if (playerIds != null && playerIds.Count > 0)
+				{
+					pids = new int[playerIds.Count];
+					for (int i = 0; i < playerIds.Count; i++)
+						pids[i] = System.Convert.ToInt32(playerIds[i]);
+				}
+
+				var query = FootballSim.Engine.Debug.DebugLogger.Query(slice);
+				if (pids != null && pids.Length > 0)
+				{
+					var json = query.Where(p => System.Array.IndexOf(pids, p.PlayerId) >= 0).ToJson();
+					return json;
+				}
+
+				return query.ToJson();
+			}
+			catch (Exception ex)
+			{
+				_lastError = $"ExportDebugJSONRange failed: {ex.Message}";
+				GD.PrintErr($"[MatchEngineBridge] {_lastError}\n{ex.StackTrace}");
+				return "{}";
+			}
+		}
+
 		// ── Private state ─────────────────────────────────────────────────────
 
 		/// <summary>
@@ -123,7 +277,7 @@ namespace FootballSim.Bridge
 		/// Null until simulation completes. Read-only after that.
 		/// Never re-computed per frame.
 		/// </summary>
-		private MatchReplay _replay = null;
+		private MatchReplay? _replay = null;
 
 		/// <summary>
 		/// True after LoadData() completed successfully.
@@ -253,7 +407,7 @@ namespace FootballSim.Bridge
 								  int seed = 0)
 		{
 			_lastError = string.Empty;
-			_replay = null;
+			_replay = null!;
 
 			if (!_dataLoaded)
 			{
@@ -287,7 +441,6 @@ namespace FootballSim.Bridge
 				GD.PrintErr($"[MatchEngineBridge] {_lastError}\n{ex.StackTrace}");
 			}
 		}
-
 
 		/// <summary>
 		/// Accepts a pre-built MatchReplay from DebugTickRunner.BuildReplay().
@@ -334,7 +487,7 @@ namespace FootballSim.Bridge
 		public void SimulateDebugScenario(string scenarioName, int seed = 42,
 										   int maxTicks = 600)
 		{
-			_replay = null;
+			_replay = null!;
 			_lastError = "";
 
 			try

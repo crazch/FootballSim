@@ -168,6 +168,15 @@ namespace FootballSim.Engine.Core
         /// </summary>
         public static bool DEBUG = false;
 
+        // ── Debug capture controls (set via Bridge.SetDebugCaptureRange)
+        public static bool DebugCaptureEnabled = false;
+        public static int DebugCaptureStart = 0;
+        public static int DebugCaptureEnd = 0;
+        public static FootballSim.Engine.Debug.DebugCaptureMode DebugCaptureMode = FootballSim.Engine.Debug.DebugCaptureMode.Light;
+        private static List<FootballSim.Engine.Debug.TickLog> _capturedTickLogs = new List<FootballSim.Engine.Debug.TickLog>();
+
+        public static IReadOnlyList<FootballSim.Engine.Debug.TickLog> GetCapturedTickLogs() => _capturedTickLogs.AsReadOnly();
+
         // ── Simulation entry point ────────────────────────────────────────────
 
         /// <summary>
@@ -216,6 +225,9 @@ namespace FootballSim.Engine.Core
                 AwayTeamName = awayTeam.Name,
                 Frames = new List<ReplayFrame>(EventSystem.FULL_TIME_TICK),
             };
+
+            // Clear any previous captured logs when starting a new match
+            _capturedTickLogs.Clear();
 
             // ── 7. Main tick loop ─────────────────────────────────────────────
             while (ctx.Phase != MatchPhase.FullTime)
@@ -278,6 +290,20 @@ namespace FootballSim.Engine.Core
                 return;
             }
 
+            // Toggle per-system DEBUG flags if capture range enabled so console
+            // printing only occurs inside the requested tick window.
+            bool inRange = DebugCaptureEnabled && ctx.Tick >= DebugCaptureStart && ctx.Tick < DebugCaptureEnd;
+
+            // Assign to common systems that emit Console.WriteLine under DEBUG
+            MovementSystem.DEBUG = inRange;
+            PlayerAI.DEBUG = inRange;
+            BallSystem.DEBUG = inRange;
+            CollisionSystem.DEBUG = inRange;
+            EventSystem.DEBUG = inRange;
+            DecisionSystem.DEBUG = inRange;
+            BlockShiftSystem.DEBUG = inRange;
+            StatAggregator.DEBUG = inRange;
+
             // 1. Movement — positions updated, stamina decayed/recovered
             MovementSystem.Tick(ctx);
 
@@ -295,6 +321,21 @@ namespace FootballSim.Engine.Core
 
             // 6. Stats — consumes EventsThisTick, updates counters
             aggregator.Consume(ctx);
+
+            // If debug capture is enabled and we're inside the range, capture a TickLog
+            if (DebugCaptureEnabled && ctx.DebugMode && inRange)
+            {
+                try
+                {
+                    ActionPlan?[]? plans = ctx.DebugMode ? ctx.LastAppliedPlans : null;
+                    var tickLog = FootballSim.Engine.Debug.DebugLogger.Capture(ctx, plans, DebugCaptureMode);
+                    _capturedTickLogs.Add(tickLog);
+                }
+                catch (Exception)
+                {
+                    // Swallow to avoid breaking simulation; Bridge can inspect errors via GetLastError
+                }
+            }
 
             if (DEBUG && ctx.Tick % 1000 == 0)
                 Console.WriteLine(

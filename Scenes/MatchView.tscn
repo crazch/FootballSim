@@ -21,6 +21,7 @@ event_log_ui = NodePath("EventLogUI")
 speed_controls = NodePath("SpeedControls")
 loading_overlay = NodePath("LoadingOverlay")
 loading_label = NodePath("LoadingOverlay/LoadingPanel/LoadingLabel")
+debug_mode_enabled = true
 
 [node name="PitchRenderer" type="Node2D" parent="." unique_id=1659392524]
 script = ExtResource("2_ys65p")
