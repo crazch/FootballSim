@@ -122,7 +122,7 @@ namespace FootballSim.Engine.Systems
             p.Speed = ComputeEffectiveSpeed(p, tactics);
 
             // ── 3. Compute desired direction toward TargetPosition ─────────────
-            Vec2 toTarget   = p.TargetPosition - p.Position;
+            Vec2 toTarget = p.TargetPosition - p.Position;
             float distToTarget = toTarget.Length();
 
             // Snap: if close enough, just place at target and stop
@@ -151,7 +151,7 @@ namespace FootballSim.Engine.Systems
 
             // ── 6. Apply acceleration / deceleration limits ────────────────────
             float currentSpeed = p.Velocity.Length();
-            float targetSpeed  = desiredSpeed;
+            float targetSpeed = desiredSpeed;
             float newSpeed;
 
             if (targetSpeed > currentSpeed)
@@ -181,11 +181,15 @@ namespace FootballSim.Engine.Systems
             // Players can't leave the pitch even if TargetPosition is off-pitch.
             p.Position = new Vec2(
                 Math.Clamp(p.Position.X, PhysicsConstants.PITCH_LEFT, PhysicsConstants.PITCH_RIGHT),
-                Math.Clamp(p.Position.Y, PhysicsConstants.PITCH_TOP,  PhysicsConstants.PITCH_BOTTOM)
+                Math.Clamp(p.Position.Y, PhysicsConstants.PITCH_TOP, PhysicsConstants.PITCH_BOTTOM)
             );
 
             // ── 10. Update stamina ─────────────────────────────────────────────
             UpdateStamina(ref p, ctx.Tick);
+
+            // ── 11. Decrement tackle cooldown ──────────────────────────────────
+            if (p.TackleCooldownTicks > 0)
+                p.TackleCooldownTicks--;
         }
 
         // ── Stamina Update ────────────────────────────────────────────────────
@@ -198,9 +202,9 @@ namespace FootballSim.Engine.Systems
             {
                 // Sprint drain, mitigated by StaminaAttribute
                 // High StaminaAttribute = slower drain (multiply drain by inverse)
-                float drainScale  = 1.0f - p.StaminaAttribute * 0.5f;
-                float drain       = PhysicsConstants.STAMINA_SPRINT_DRAIN_PER_TICK * drainScale;
-                p.Stamina         = MathF.Max(0f, p.Stamina - drain);
+                float drainScale = 1.0f - p.StaminaAttribute * 0.5f;
+                float drain = PhysicsConstants.STAMINA_SPRINT_DRAIN_PER_TICK * drainScale;
+                p.Stamina = MathF.Max(0f, p.Stamina - drain);
             }
             else if (p.Velocity.LengthSquared() > 1f)
             {
@@ -213,7 +217,7 @@ namespace FootballSim.Engine.Systems
                 // Walking or idle — recover stamina
                 // StaminaAttribute scales recovery speed too
                 float recoveryScale = 0.5f + p.StaminaAttribute * 0.5f;
-                float recovery      = PhysicsConstants.STAMINA_RECOVERY_WALK_PER_TICK
+                float recovery = PhysicsConstants.STAMINA_RECOVERY_WALK_PER_TICK
                                       * recoveryScale;
                 p.Stamina = MathF.Min(1f, p.Stamina + recovery);
             }
@@ -243,7 +247,7 @@ namespace FootballSim.Engine.Systems
         public static float ComputeEffectiveSpeed(PlayerState player, TacticsInput tactics)
         {
             float staminaMult = ComputeStaminaCurve(player.Stamina);
-            float tempoScale  = ComputeTempoScale(tactics.Tempo);
+            float tempoScale = ComputeTempoScale(tactics.Tempo);
 
             // Sprint vs jog base speed
             float baseSpeed = player.IsSprinting
@@ -267,7 +271,7 @@ namespace FootballSim.Engine.Systems
         public static float ComputeStaminaCurve(float stamina)
         {
             float min = PhysicsConstants.STAMINA_SPEED_MIN_MULTIPLIER;
-            float t   = MathF.Max(0f, MathF.Min(1f, stamina)); // clamp to [0,1]
+            float t = MathF.Max(0f, MathF.Min(1f, stamina)); // clamp to [0,1]
             return min + (1f - min) * (t * t);
         }
 

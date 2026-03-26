@@ -234,6 +234,10 @@ namespace FootballSim.Engine.Systems
                         BallSystem.LaunchShot(ctx, player.PlayerId,
                             plan.ShotTargetPos, shotSpeed);
 
+                        // Set the xG value for collision resolution
+                        ctx.Ball.ShotXG = plan.XG;
+                        ctx.Ball.ShotContestResolved = false;
+
                         // Notify EventSystem so it can track xG for save/goal attribution
                         EventSystem.NotifyShotLaunched(plan.XG);
 

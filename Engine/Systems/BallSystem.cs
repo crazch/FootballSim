@@ -358,6 +358,8 @@ namespace FootballSim.Engine.Systems
             ball.PassTargetId = -1;
             ball.IsShot = false;
             ball.ShotOnTarget = false;
+            ball.ShotXG = 0f;
+            ball.ShotContestResolved = false;
             ball.LooseTicks = 0;
             ball.Height = 0f;
 
@@ -386,6 +388,8 @@ namespace FootballSim.Engine.Systems
             ball.PassTargetId = -1;
             ball.IsShot = false;
             ball.ShotOnTarget = false;
+            ball.ShotXG = 0f;
+            ball.ShotContestResolved = false;
             ball.LooseTicks = 0;
             // Velocity kept — ball rolls with whatever speed it had
         }
@@ -472,6 +476,8 @@ namespace FootballSim.Engine.Systems
             ball.Height = 0.2f; // slightly off ground (driven shot)
             ball.IsShot = true;
             ball.ShotOnTarget = shotOnTarget;
+            ball.ShotXG = 0f; // will be set by caller (PlayerAI)
+            ball.ShotContestResolved = false;
             ball.LastTouchedBy = shooterId;
             ball.LooseTicks = 0;
 
@@ -566,6 +572,8 @@ namespace FootballSim.Engine.Systems
             ball.PassTargetId = -1;
             ball.IsShot = false;
             ball.ShotOnTarget = false;
+            ball.ShotXG = 0f;
+            ball.ShotContestResolved = false;
             ball.Height = 0f;
             ball.LooseTicks = 0;
             ball.IsOutOfPlay = false;

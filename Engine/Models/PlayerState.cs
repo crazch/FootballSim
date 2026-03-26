@@ -141,12 +141,20 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public int DecisionCooldown;
 
-        /// <summary>
-        /// How many consecutive ticks this player has held the ball.
-        /// Incremented by PlayerAI each tick the player HasBall.
-        /// Reset to 0 by PlayerAI when the player loses the ball.
-        /// Used to enforce a minimum hold time before passing is allowed.
+        /// Ticks remaining before this player can attempt another tackle.
+        /// Set by CollisionSystem after a tackle attempt (success, foul, or miss).
+        /// A failed/foul tackle costs TACKLE_RECOVERY_TICKS (~7 ticks = 0.7 seconds).
+        /// A successful tackle costs fewer ticks (~3) — momentum carries through.
+        /// Decremented by MovementSystem each tick. CollisionSystem skips this defender
+        /// if TackleCooldownTicks > 0 (Bug 23 fix).
         /// </summary>
+        public int TackleCooldownTicks;
+
+        /// <summary>
+        /// How many ticks this player has held the ball continuously.
+        /// Incremented by PlayerAI each tick HasBall is true.
+        /// Reset when player loses the ball.
+        /// Used by PlayerAI to enforce role-based minimum hold times before passing.
         public int BallHoldTicks;
 
         // ── Match Status ──────────────────────────────────────────────────────

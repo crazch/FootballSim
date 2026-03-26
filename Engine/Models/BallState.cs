@@ -106,6 +106,25 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public bool IsShot;
 
+        /// <summary>
+        /// Expected goals value computed at the moment of the shot by DecisionSystem/PlayerAI.
+        /// Stored here so CollisionSystem can use the true xG for GK save probability
+        /// rather than re-estimating from ball speed (which decays in flight).
+        /// Set by BallSystem.LaunchShot(). Read by CollisionSystem.ResolveGoalCheck().
+        /// 0.0 when ball is not a shot.
+        /// </summary>
+        public float ShotXG;
+
+        /// <summary>
+        /// True after CollisionSystem has resolved the GK save/goal contest for this shot.
+        /// Prevents the save roll from firing again on subsequent ticks while the ball
+        /// travels slowly through the trigger zone (Bug 6 fix).
+        /// Reset to false by BallSystem when ball phase changes away from InFlight.
+        /// </summary>
+        public bool ShotContestResolved;
+
+
+
         // ── Physical Properties ───────────────────────────────────────────────
 
         /// <summary>

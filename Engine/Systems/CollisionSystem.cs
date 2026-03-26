@@ -1,5 +1,5 @@
 // =============================================================================
-// Module:  CollisionSystem.cs
+// Module:  CollisionSystem.cs (pre-bugs fix)
 // Path:    FootballSim/Engine/Systems/CollisionSystem.cs
 // Purpose:
 //   Resolves all physical contests that require a probability draw:

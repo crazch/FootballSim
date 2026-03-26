@@ -343,6 +343,26 @@ namespace FootballSim.Engine.Systems
         // BALL HOLD — MINIMUM TICKS BEFORE PASSING IS ALLOWED
         // =====================================================================
 
+        /// Ticks a defender cannot attempt another tackle after a failed/foul tackle.
+        /// 7 ticks = 0.7 seconds. A sliding miss puts the defender on the ground briefly.
+        public static readonly int TACKLE_RECOVERY_TICKS_FAILED = 7;
+
+        /// Ticks a defender cannot attempt another tackle after a successful tackle.
+        /// 3 ticks = 0.3 seconds. Successful tackle still needs brief recovery.
+        public static readonly int TACKLE_RECOVERY_TICKS_SUCCESS = 3;
+
+        // =====================================================================
+        // INTERCEPT — reaction window constant (replaces magic ×20, Bug 9 fix)
+        // =====================================================================
+
+        /// <summary>
+        /// How many ticks ahead on the ball trajectory a defender can realistically
+        /// intercept. maxInterceptRange = ballVel.Length() × DEFENDER_INTERCEPT_REACTION_TICKS.
+        /// 12 ticks = 1.2 seconds. A defender can step into a passing lane within 1.2s.
+        /// At typical pass speed of 25 units/tick: 25 × 12 = 300 units max reach (30m). Realistic.
+        /// </summary>
+        public static readonly int DEFENDER_INTERCEPT_REACTION_TICKS = 12;
+        
         /// <summary>
         /// Minimum ticks a CB or BPD must hold the ball before passing.
         /// 10 ticks = 1.0 second. Centre backs are deliberate on the ball.
@@ -379,7 +399,10 @@ namespace FootballSim.Engine.Systems
         /// Set true during debugging to isolate ping-pong and interception bugs
         /// from long-ball fling issues.
         /// </summary>
-        public static readonly bool DISABLE_LONG_PASS = true;
+        /// disabled in DecisionSystem.ScorePass(). Use during debugging to isolate
+        /// ping-pong and interception bugs from long-ball fling issues.
+
+        public static readonly bool DISABLE_LONG_PASS = false;
 
         /// <summary>
         /// Runtime override set by DebugTickRunner. Never true in production.
