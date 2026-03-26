@@ -592,7 +592,7 @@ namespace FootballSim.Engine.Systems
                 return default;
 
             // Determine attacking direction
-            bool attacksDown = player.TeamId == 0; // home attacks toward Y=680
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             float goalY = attacksDown ? PhysicsConstants.AWAY_GOAL_LINE_Y
                                         : PhysicsConstants.HOME_GOAL_LINE_Y;
             float goalCentreX = (PhysicsConstants.HOME_GOAL_LEFT_X +
@@ -718,7 +718,7 @@ namespace FootballSim.Engine.Systems
             }
 
             // ── Progressive bonus ─────────────────────────────────────────────
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             bool isProgressive = attacksDown
                 ? receiver.Position.Y > player.Position.Y + 20f
                 : receiver.Position.Y < player.Position.Y - 20f;
@@ -809,7 +809,8 @@ namespace FootballSim.Engine.Systems
             if (pitchEdgeDist > AIConstants.CROSS_WIDE_ZONE_X) return 0f;
 
             // Must be advanced enough
-            float yProgress = player.TeamId == 0
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
+            float yProgress = attacksDown
                 ? player.Position.Y / PhysicsConstants.PITCH_HEIGHT
                 : 1f - player.Position.Y / PhysicsConstants.PITCH_HEIGHT;
 
@@ -1322,7 +1323,7 @@ namespace FootballSim.Engine.Systems
         /// <summary>Computes an ideal dribble target: forward in movement direction.</summary>
         private static Vec2 ComputeDribbleTarget(ref PlayerState player, MatchContext ctx)
         {
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             Vec2 forward = attacksDown ? new Vec2(0f, 1f) : new Vec2(0f, -1f);
 
             // Slightly bias toward centre for IW, slightly outward for WF
@@ -1355,7 +1356,7 @@ namespace FootballSim.Engine.Systems
             float xSide = player.FormationAnchor.X > PhysicsConstants.PITCH_WIDTH * 0.5f
                 ? AIConstants.SUPPORT_IDEAL_DISTANCE : -AIConstants.SUPPORT_IDEAL_DISTANCE;
 
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             float yOffset = attacksDown ? -AIConstants.SUPPORT_IDEAL_DISTANCE * 0.3f
                                            : AIConstants.SUPPORT_IDEAL_DISTANCE * 0.3f;
 
@@ -1382,7 +1383,7 @@ namespace FootballSim.Engine.Systems
         private static Vec2 ComputeRunInBehindTarget(ref PlayerState player,
                                                        MatchContext ctx)
         {
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             int opponentTeam = player.TeamId == 0 ? 1 : 0;
 
             bool isForwardRole = player.Role == PlayerRole.ST ||
@@ -1465,7 +1466,7 @@ namespace FootballSim.Engine.Systems
             float targetX = isRight
                 ? PhysicsConstants.PITCH_WIDTH - 30f
                 : 30f;
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             float targetY = attacksDown
                 ? player.Position.Y + 150f
                 : player.Position.Y - 150f;
@@ -1477,7 +1478,7 @@ namespace FootballSim.Engine.Systems
         /// <summary>Drop-deep target: position between ball carrier and own half.</summary>
         private static Vec2 ComputeDropDeepTarget(ref PlayerState player, MatchContext ctx)
         {
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             float deepY = attacksDown
                 ? PhysicsConstants.PITCH_HEIGHT * 0.45f
                 : PhysicsConstants.PITCH_HEIGHT * 0.55f;
@@ -1562,7 +1563,7 @@ namespace FootballSim.Engine.Systems
                                                     int defensiveTeam,
                                                     MatchContext ctx)
         {
-            bool defAttacksDown = defensiveTeam == 0;
+            bool defAttacksDown = ctx.AttacksDownward(defensiveTeam);
             float oppGoalY = defAttacksDown
                 ? PhysicsConstants.PITCH_TOP    // defending team's goal is at top
                 : PhysicsConstants.PITCH_BOTTOM;
@@ -1582,7 +1583,7 @@ namespace FootballSim.Engine.Systems
         {
             int teamStart = attackingTeam == 0 ? 0 : 11;
             int teamEnd = attackingTeam == 0 ? 11 : 22;
-            bool attacksDown = attackingTeam == 0;
+            bool attacksDown = ctx.AttacksDownward(attackingTeam);
             int count = 0;
 
             float boxTopY = attacksDown

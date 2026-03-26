@@ -393,7 +393,7 @@ namespace FootballSim.Engine.Systems
         /// </summary>
         private static Vec2 ComputeCrossDeliveryPoint(ref PlayerState player, MatchContext ctx)
         {
-            bool attacksDown = player.TeamId == 0;
+            bool attacksDown = ctx.AttacksDownward(player.TeamId);
             bool isRightSide = player.Position.X > PhysicsConstants.PITCH_WIDTH * 0.5f;
 
             // Aim for the far post area when crossing from the right, near post from left

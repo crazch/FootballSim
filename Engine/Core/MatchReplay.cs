@@ -391,6 +391,11 @@ namespace FootballSim.Engine.Core
         {
             InitialiseTeam(ctx, ctx.HomeTeam, teamId: 0, globalOffset: 0, flipY: false);
             InitialiseTeam(ctx, ctx.AwayTeam, teamId: 1, globalOffset: 11, flipY: true);
+
+            // Initialize attack directions: home attacks downward (toward Y=680),
+            // away attacks upward (toward Y=0)
+            ctx.HomeTeam.AttacksDownward = true;
+            ctx.AwayTeam.AttacksDownward = false;
         }
 
         private static void InitialiseTeam(MatchContext ctx, TeamData team,
@@ -622,6 +627,7 @@ namespace FootballSim.Engine.Core
         /// <summary>
         /// Flips FormationAnchor Y positions at half-time so each team defends the other end.
         /// Also flips current Position and TargetPosition so transition is smooth.
+        /// Flips the AttacksDownward flag for both teams to reflect swapped attacking directions.
         /// </summary>
         private static void FlipAttackingDirections(MatchContext ctx)
         {
@@ -641,6 +647,10 @@ namespace FootballSim.Engine.Core
                 ctx.Players[i].TargetPosition = ctx.Players[i].FormationAnchor;
                 ctx.Players[i].Velocity = Vec2.Zero;
             }
+
+            // Flip attacking directions: home now attacks upward, away attacks downward
+            ctx.HomeTeam.AttacksDownward = !ctx.HomeTeam.AttacksDownward;
+            ctx.AwayTeam.AttacksDownward = !ctx.AwayTeam.AttacksDownward;
         }
     }
 }

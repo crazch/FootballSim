@@ -281,9 +281,9 @@ namespace FootballSim.Engine.Systems
 
             if (ball.IsOutOfPlay) return; // Already flagged this tick
 
-            bool outLeft   = ball.Position.X < PhysicsConstants.PITCH_LEFT;
-            bool outRight  = ball.Position.X > PhysicsConstants.PITCH_RIGHT;
-            bool outTop    = ball.Position.Y < PhysicsConstants.PITCH_TOP;
+            bool outLeft = ball.Position.X < PhysicsConstants.PITCH_LEFT;
+            bool outRight = ball.Position.X > PhysicsConstants.PITCH_RIGHT;
+            bool outTop = ball.Position.Y < PhysicsConstants.PITCH_TOP;
             bool outBottom = ball.Position.Y > PhysicsConstants.PITCH_BOTTOM;
 
             if (!outLeft && !outRight && !outTop && !outBottom) return;
@@ -292,7 +292,7 @@ namespace FootballSim.Engine.Systems
             // EventSystem will handle the restart in its own Tick.
             ball.Position = new Vec2(
                 Math.Clamp(ball.Position.X, PhysicsConstants.PITCH_LEFT, PhysicsConstants.PITCH_RIGHT),
-                Math.Clamp(ball.Position.Y, PhysicsConstants.PITCH_TOP,  PhysicsConstants.PITCH_BOTTOM)
+                Math.Clamp(ball.Position.Y, PhysicsConstants.PITCH_TOP, PhysicsConstants.PITCH_BOTTOM)
             );
             ball.Velocity = Vec2.Zero;
             ball.IsOutOfPlay = true;
@@ -351,15 +351,15 @@ namespace FootballSim.Engine.Systems
 
             int previousOwner = ball.OwnerId;
 
-            ball.Phase        = BallPhase.Owned;
-            ball.OwnerId      = newOwnerId;
+            ball.Phase = BallPhase.Owned;
+            ball.OwnerId = newOwnerId;
             ball.LastTouchedBy = newOwnerId;
-            ball.Velocity     = Vec2.Zero;
+            ball.Velocity = Vec2.Zero;
             ball.PassTargetId = -1;
-            ball.IsShot       = false;
+            ball.IsShot = false;
             ball.ShotOnTarget = false;
-            ball.LooseTicks   = 0;
-            ball.Height       = 0f;
+            ball.LooseTicks = 0;
+            ball.Height = 0f;
 
             if (DEBUG)
                 Console.WriteLine(
@@ -381,10 +381,10 @@ namespace FootballSim.Engine.Systems
                     $"[BallSystem] Tick {ctx.Tick}: Ball goes LOOSE at {ball.Position} " +
                     $"vel={ball.Velocity} (was Phase={ball.Phase}, Owner={ball.OwnerId})");
 
-            ball.Phase    = BallPhase.Loose;
-            ball.OwnerId  = -1;
+            ball.Phase = BallPhase.Loose;
+            ball.OwnerId = -1;
             ball.PassTargetId = -1;
-            ball.IsShot   = false;
+            ball.IsShot = false;
             ball.ShotOnTarget = false;
             ball.LooseTicks = 0;
             // Velocity kept — ball rolls with whatever speed it had
@@ -409,16 +409,16 @@ namespace FootballSim.Engine.Systems
 
             Vec2 direction = (receiver.Position - sender.Position).Normalized();
 
-            ball.Phase         = BallPhase.InFlight;
-            ball.OwnerId       = -1;
-            ball.PassTargetId  = receiverId;
-            ball.Velocity      = direction * speed;
-            ball.Position      = sender.Position; // starts at sender's feet
-            ball.Height        = height;
-            ball.IsShot        = false;
-            ball.ShotOnTarget  = false;
+            ball.Phase = BallPhase.InFlight;
+            ball.OwnerId = -1;
+            ball.PassTargetId = receiverId;
+            ball.Velocity = direction * speed;
+            ball.Position = sender.Position; // starts at sender's feet
+            ball.Height = height;
+            ball.IsShot = false;
+            ball.ShotOnTarget = false;
             ball.LastTouchedBy = senderId;
-            ball.LooseTicks    = 0;
+            ball.LooseTicks = 0;
 
             if (DEBUG)
                 Console.WriteLine(
@@ -438,16 +438,16 @@ namespace FootballSim.Engine.Systems
         public static void LaunchShot(MatchContext ctx, int shooterId,
                                       Vec2 targetPosition, float speed)
         {
-            ref BallState ball     = ref ctx.Ball;
+            ref BallState ball = ref ctx.Ball;
             ref PlayerState shooter = ref ctx.Players[shooterId];
 
             Vec2 direction = (targetPosition - shooter.Position).Normalized();
 
             // Determine which goal line to check (shooter attacks toward high Y or low Y)
-            bool attackingDown = shooter.TeamId == 0; // home attacks toward away goal (Y=680)
-            float goalY      = attackingDown ? PhysicsConstants.AWAY_GOAL_LINE_Y
+            bool attackingDown = ctx.AttacksDownward(shooter.TeamId);
+            float goalY = attackingDown ? PhysicsConstants.AWAY_GOAL_LINE_Y
                                              : PhysicsConstants.HOME_GOAL_LINE_Y;
-            float goalLeftX  = PhysicsConstants.AWAY_GOAL_LEFT_X;  // same X for both goals
+            float goalLeftX = PhysicsConstants.AWAY_GOAL_LEFT_X;  // same X for both goals
             float goalRightX = PhysicsConstants.AWAY_GOAL_RIGHT_X;
 
             // Project where ball trajectory crosses the goal line
@@ -464,16 +464,16 @@ namespace FootballSim.Engine.Systems
                 }
             }
 
-            ball.Phase         = BallPhase.InFlight;
-            ball.OwnerId       = -1;
-            ball.PassTargetId  = -1;
-            ball.Velocity      = direction * speed;
-            ball.Position      = shooter.Position;
-            ball.Height        = 0.2f; // slightly off ground (driven shot)
-            ball.IsShot        = true;
-            ball.ShotOnTarget  = shotOnTarget;
+            ball.Phase = BallPhase.InFlight;
+            ball.OwnerId = -1;
+            ball.PassTargetId = -1;
+            ball.Velocity = direction * speed;
+            ball.Position = shooter.Position;
+            ball.Height = 0.2f; // slightly off ground (driven shot)
+            ball.IsShot = true;
+            ball.ShotOnTarget = shotOnTarget;
             ball.LastTouchedBy = shooterId;
-            ball.LooseTicks    = 0;
+            ball.LooseTicks = 0;
 
             if (DEBUG)
                 Console.WriteLine(
@@ -492,21 +492,21 @@ namespace FootballSim.Engine.Systems
         public static void LaunchCross(MatchContext ctx, int crosserId,
                                        Vec2 deliveryPoint, float speed)
         {
-            ref BallState ball    = ref ctx.Ball;
+            ref BallState ball = ref ctx.Ball;
             ref PlayerState crosser = ref ctx.Players[crosserId];
 
             Vec2 direction = (deliveryPoint - crosser.Position).Normalized();
 
-            ball.Phase         = BallPhase.InFlight;
-            ball.OwnerId       = -1;
-            ball.PassTargetId  = -1;  // No single target — anyone can attack the cross
-            ball.Velocity      = direction * speed;
-            ball.Position      = crosser.Position;
-            ball.Height        = 0.8f; // aerial delivery
-            ball.IsShot        = false;
-            ball.ShotOnTarget  = false;
+            ball.Phase = BallPhase.InFlight;
+            ball.OwnerId = -1;
+            ball.PassTargetId = -1;  // No single target — anyone can attack the cross
+            ball.Velocity = direction * speed;
+            ball.Position = crosser.Position;
+            ball.Height = 0.8f; // aerial delivery
+            ball.IsShot = false;
+            ball.ShotOnTarget = false;
             ball.LastTouchedBy = crosserId;
-            ball.LooseTicks    = 0;
+            ball.LooseTicks = 0;
 
             if (DEBUG)
                 Console.WriteLine(
@@ -559,16 +559,16 @@ namespace FootballSim.Engine.Systems
         {
             ref BallState ball = ref ctx.Ball;
 
-            ball.Position      = position;
-            ball.Velocity      = Vec2.Zero;
-            ball.OwnerId       = newOwnerId;
-            ball.Phase         = BallPhase.Owned;
-            ball.PassTargetId  = -1;
-            ball.IsShot        = false;
-            ball.ShotOnTarget  = false;
-            ball.Height        = 0f;
-            ball.LooseTicks    = 0;
-            ball.IsOutOfPlay   = false;
+            ball.Position = position;
+            ball.Velocity = Vec2.Zero;
+            ball.OwnerId = newOwnerId;
+            ball.Phase = BallPhase.Owned;
+            ball.PassTargetId = -1;
+            ball.IsShot = false;
+            ball.ShotOnTarget = false;
+            ball.Height = 0f;
+            ball.LooseTicks = 0;
+            ball.IsOutOfPlay = false;
             ball.OutOfPlayCausedBy = -1;
 
             if (newOwnerId >= 0 && newOwnerId <= 21)

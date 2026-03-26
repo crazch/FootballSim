@@ -635,7 +635,7 @@ namespace FootballSim.Engine.Systems
             float goalLeftX = PhysicsConstants.AWAY_GOAL_LEFT_X;
             float goalRightX = PhysicsConstants.AWAY_GOAL_RIGHT_X;
 
-            bool ballApproachingGoal = attackingTeam == 0
+            bool ballApproachingGoal = ctx.AttacksDownward(attackingTeam)
                 ? ctx.Ball.Velocity.Y > 0f  // home attacks down
                 : ctx.Ball.Velocity.Y < 0f; // away attacks up
 

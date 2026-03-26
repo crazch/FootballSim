@@ -590,12 +590,12 @@ namespace FootballSim.Engine.Systems
             }
 
             // Determine attacking direction
-            // Home attacks toward bottom (Y=680), away toward top (Y=0)
+            // Use AttacksDownward to determine which direction each team is attacking
             bool lastTeamWasAttacking;
             if (topByline)
-                lastTeamWasAttacking = lastTeam == 1; // away attacks top (Y=0)
+                lastTeamWasAttacking = ctx.AttacksDownward(lastTeam) == false; // if attacking up, top byline is their goal line
             else
-                lastTeamWasAttacking = lastTeam == 0; // home attacks bottom (Y=680)
+                lastTeamWasAttacking = ctx.AttacksDownward(lastTeam) == true; // if attacking down, bottom byline is their goal line
 
             if (lastTeamWasAttacking)
             {
@@ -758,7 +758,7 @@ namespace FootballSim.Engine.Systems
             float passDist = ctx.Players[passerId].Position.DistanceTo(
                              ctx.Players[ownerId].Position);
 
-            bool attacksDown = passerTeam == 0;
+            bool attacksDown = ctx.AttacksDownward(passerTeam);
             bool progressive = attacksDown
                 ? ctx.Players[ownerId].Position.Y > ctx.Players[passerId].Position.Y + 20f
                 : ctx.Players[ownerId].Position.Y < ctx.Players[passerId].Position.Y - 20f;

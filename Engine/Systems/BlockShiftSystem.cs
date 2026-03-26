@@ -166,7 +166,7 @@ namespace FootballSim.Engine.Systems
             float shiftedX = pitchCentreX + shiftX + slotOffsetX;
             shiftedX = Math.Clamp(shiftedX, X_MARGIN, PhysicsConstants.PITCH_WIDTH - X_MARGIN);
 
-            float roleYOffset = ComputeRoleYOffset(player.Role, attacksDown: player.TeamId == 0, tactics);
+            float roleYOffset = ComputeRoleYOffset(player.Role, attacksDown: ctx.AttacksDownward(player.TeamId), tactics);
             float shiftedY = defLineY + roleYOffset;
             shiftedY = Math.Clamp(shiftedY,
                 PhysicsConstants.PITCH_TOP + Y_MARGIN,
@@ -184,7 +184,7 @@ namespace FootballSim.Engine.Systems
         {
             int start = teamId == 0 ? 0 : 11;
             int end = teamId == 0 ? 11 : 22;
-            bool attacksDown = teamId == 0;
+            bool attacksDown = ctx.AttacksDownward(teamId);
 
             float offsideY = attacksDown ? float.MaxValue : float.MinValue;
             bool found = false;

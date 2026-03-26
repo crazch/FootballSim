@@ -304,5 +304,12 @@ namespace FootballSim.Engine.Models
                 result[i] = Players[start + i];
             return result;
         }
+
+        /// <summary>
+        /// Returns true if the given team is currently attacking toward higher Y.
+        /// Use this everywhere a directional decision is needed — never use TeamId == 0.
+        /// </summary>
+        public bool AttacksDownward(int teamId)
+            => teamId == 0 ? HomeTeam.AttacksDownward : AwayTeam.AttacksDownward;
     }
 }

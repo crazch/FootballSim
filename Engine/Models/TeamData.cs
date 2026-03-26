@@ -183,7 +183,14 @@ namespace FootballSim.Engine.Models
         /// </summary>
         public TacticsInput Tactics;
 
-        // Currently AttacksDownward not intialized!
+        // ── Match State ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// True when this team is currently attacking toward higher Y (bottom of pitch).
+        /// Set at kickoff based on coin toss / kickoff assignment.
+        /// Flipped at half time by MatchEngine.FlipAttackingDirections().
+        /// ALL directional logic must read this field — never use TeamId == 0 as a direction proxy.
+        /// </summary>
         public bool AttacksDownward;
     }
 }
