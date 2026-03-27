@@ -36,6 +36,9 @@ namespace FootballSim.Engine.Systems
         // DECISION CYCLE
         // =====================================================================
 
+        /// <summary>Exponent for xG distance decay curve. Higher = steeper falloff from close range.</summary>
+        public static readonly float XG_DISTANCE_DECAY = 2.5f;
+
         /// <summary>
         /// How many ticks between full AI re-evaluations per player.
         /// 3 ticks = 0.3 seconds match time. Players re-evaluate every 0.3s.
@@ -362,7 +365,7 @@ namespace FootballSim.Engine.Systems
         /// At typical pass speed of 25 units/tick: 25 × 12 = 300 units max reach (30m). Realistic.
         /// </summary>
         public static readonly int DEFENDER_INTERCEPT_REACTION_TICKS = 12;
-        
+
         /// <summary>
         /// Minimum ticks a CB or BPD must hold the ball before passing.
         /// 10 ticks = 1.0 second. Centre backs are deliberate on the ball.

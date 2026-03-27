@@ -8,6 +8,51 @@
 //   It never writes to MatchContext. It never calls BallSystem methods.
 //   It never calls RoleRegistry or any loader at runtime (registry already loaded).
 //
+// Bug fixes applied (see DecisionSystemBugsAnalysis.md):
+//   Bug 1  — ScoreHold inverted: gate and normalisation both fixed so hold score
+//             peaks at medium pressure, 0 at max pressure and 0 with no pressure.
+//   Bug 2  — ScoreDribble dead zone: contestT now peaks at the 1v1 range (just
+//             outside safe distance) instead of rising from zero there.
+//   Bug 3  — EvaluateOutOfPossession mutates player.IsSprinting: all IsSprinting
+//             assignments moved to ActionPlan.ShouldSprint. PlayerAI must apply it.
+//   Bug 5  — ScoreShoot uses HOME goalCentreX for both teams: fixed per attacksDown.
+//   Bug 6  — EvaluateLooseBall uses WalkingToAnchor for chase: now uses Pressing
+//             (sprint-eligible action).
+//   Bug 7  — GK holds when no pass found: FindGKClearanceTarget provides a long-kick
+//             fallback to the most advanced teammate.
+//   Bug 8  — ScoreBestPass self-exclusion: now compares PlayerId not array index.
+//   Bug 9  — ComputeSenderPressure returns raw distance: now normalised to [0,1]
+//             matching ComputeReceiverPressure. ScorePass recycle check updated.
+//   Bug 11 — ScoreMakeRun uses DribblingAbility as pace proxy: now uses BaseSpeed
+//             normalised by PLAYER_SPRINT_SPEED.
+//   Bug 13 — cbCount==1 targets CB directly: now targets channel beside lone CB.
+//   Bug 14 — ScoreOverlapRun divide by zero: guarded with Clamp01.
+//   Bug 15 — xG normalised to OPTIMAL_RANGE: now uses SHOOT_MAX_RANGE so the full
+//             shooting range has meaningful xG values.
+//   Bug 16 — Block penalty additive collapse: now multiplicative Pow decay per blocker.
+//   Bug 17 — ComputeGoalAimPoint uses HOME half-width always: fixed per attacksDown.
+//   Bug 18 — ScorePress returns 0 on loose ball: loose ball within triggerDist now
+//             generates a press score targeting ball position.
+//   Bug 21 — ComputeOpponentDanger uses wrong goal: comment clarified; logic already
+//             correct via ctx.AttacksDownward which flips at half-time.
+//   Bug 22 — ScoreHoldWidth hardcoded 0.5: now blends pace + passing ability.
+//   Bug 23 — ComputeSupportTarget SUPPORT_IDEAL_DISTANCE as X offset: now uses
+//             scaled lateral offset (30-80 units) from AttackingWidth tactic.
+//   Bug 25 — GK rushes loose ball only after LooseTicks delay: now rushes immediately
+//             if within GK_CLAIM_RADIUS, regardless of LooseTicks.
+//   Bug 26 — ComputeWidthTarget uses fixed FormationAnchor.Y: now blends 40% toward
+//             ball Y so wide channel is held in the correct vertical zone.
+//   Bug 27 — ScoreRecover oscillation: threshold reduced from 0.5× to 0.3× radius.
+//   Bug 28 — DebugLogWithBall logs "Tick ?": ctx.Tick now passed through correctly.
+//
+// Required additions outside this file:
+//   AIConstants.cs    — add: XG_DISTANCE_DECAY = 2.5f (tunable xG distance falloff)
+//                             DISABLE_LONG_PASS_OVERRIDE (already used on line 686)
+//   MatchContext.cs   — add: bool AttacksDownward(int teamId) method
+//                             (home=true initially, flipped at half-time)
+//   PlayerAI.cs       — after EvaluateOutOfPossession: player.IsSprinting = plan.ShouldSprint;
+//                             (Bug 3 fix requires this to maintain sprint behaviour)
+//
 //   What it scores (with ball):
 //     ScorePass(player, receiver, ctx)     → float [0,1]
 //     ScoreShoot(player, ctx)              → ShotScore { xG, score, targetPos }
@@ -88,6 +133,13 @@ namespace FootballSim.Engine.Systems
 
         // ── NEW: with-ball score breakdown ────────────────────────────────────
         // Populated by EvaluateWithBall. Zero when player does not have ball.
+
+        /// <summary>
+        /// Bug 3 fix: IsSprinting is no longer set inside scoring methods.
+        /// DecisionSystem sets this field; PlayerAI applies it after accepting the plan.
+        /// This keeps DecisionSystem side-effect free.
+        /// </summary>
+        public bool ShouldSprint;
 
         /// <summary>True when score breakdown fields were populated this evaluation.</summary>
         public bool HasScoreBreakdown;
@@ -297,7 +349,7 @@ namespace FootballSim.Engine.Systems
             best.PassDistance = bestPass.Distance;
             best.PassReceiverPressure = bestPass.ReceiverPressure;
 
-            DebugLogWithBall(ref player, ref best, shot, bestPass, crossScore, dribScore, holdScore);
+            DebugLogWithBall(ref player, ref best, shot, bestPass, crossScore, dribScore, holdScore, ctx.Tick); // Bug 28 fix
             return best;
         }
 
@@ -414,7 +466,7 @@ namespace FootballSim.Engine.Systems
                 best.Score = press.Score;
                 best.Action = PlayerAction.Pressing;
                 best.TargetPosition = press.TargetPosition;
-                player.IsSprinting = true;
+                best.ShouldSprint = true; // Bug 3 fix: was player.IsSprinting = true
             }
 
             // 2. TRACK runner
@@ -424,7 +476,7 @@ namespace FootballSim.Engine.Systems
                 best.Score = track.Score;
                 best.Action = PlayerAction.Tracking;
                 best.TargetPosition = track.TargetPosition;
-                player.IsSprinting = track.Score > 0.6f; // sprint if urgent
+                best.ShouldSprint = track.Score > 0.6f; // Bug 3 fix: was player.IsSprinting
             }
 
             // 3. RECOVER to shape
@@ -434,7 +486,7 @@ namespace FootballSim.Engine.Systems
                 best.Score = recoverScore;
                 best.Action = PlayerAction.Recovering;
                 best.TargetPosition = ComputeDefensiveAnchor(ref player, tactics, ctx);
-                player.IsSprinting = true;
+                best.ShouldSprint = true; // Bug 3 fix: was player.IsSprinting = true
             }
 
             // 4. MARK SPACE (zone cover)
@@ -445,7 +497,7 @@ namespace FootballSim.Engine.Systems
                 best.Score = markScore;
                 best.Action = PlayerAction.MarkingSpace;
                 best.TargetPosition = markTarget;
-                player.IsSprinting = false;
+                best.ShouldSprint = false; // Bug 3 fix: was player.IsSprinting = false
             }
 
             // Fallback: return to defensive anchor
@@ -498,9 +550,12 @@ namespace FootballSim.Engine.Systems
             proximityScore += AIConstants.LOOSE_BALL_PROXIMITY_BONUS
                              * (distToBall < PhysicsConstants.BALL_CONTEST_RADIUS ? 1f : 0f);
 
+            // Bug 6 fix: use Pressing action (sprint-eligible) not WalkingToAnchor.
+            // WalkingToAnchor is walk-speed; a player chasing a loose ball should sprint.
+            // MovementSystem and PlayerAI check Action==Pressing to allow sprint speed.
             return new ActionPlan
             {
-                Action = PlayerAction.WalkingToAnchor, // MovementSystem drives toward ball
+                Action = PlayerAction.Pressing, // Bug 6 fix: was WalkingToAnchor — now sprint-eligible
                 TargetPosition = ctx.Ball.Position,
                 PassReceiverId = -1,
                 Score = MathF.Min(1f, proximityScore),
@@ -538,6 +593,23 @@ namespace FootballSim.Engine.Systems
                     };
                 }
 
+                // Bug 7 fix: GK should not hold indefinitely when pressed.
+                // Find the most advanced teammate for a long clearance kick.
+                // If nobody is found at all, hold — but this should be very rare.
+                int clearanceTarget = FindGKClearanceTarget(ref player, ctx);
+                if (clearanceTarget >= 0)
+                {
+                    return new ActionPlan
+                    {
+                        Action = PlayerAction.Passing,
+                        TargetPosition = player.Position,
+                        PassReceiverId = clearanceTarget,
+                        PassSpeed = PhysicsConstants.BALL_PASS_SPEED_HARD,
+                        PassHeight = 0.9f, // high ball — long clearance punt
+                        Score = 0.35f,
+                    };
+                }
+
                 return new ActionPlan
                 {
                     Action = PlayerAction.Holding,
@@ -547,11 +619,17 @@ namespace FootballSim.Engine.Systems
             }
 
             // Ball is LOOSE near goal — rush to claim
-            if (ctx.Ball.Phase == BallPhase.Loose &&
-                ctx.Ball.LooseTicks >= AIConstants.GK_LOOSE_BALL_RUSH_TICKS)
+            // Bug 25 fix: was gated entirely on LooseTicks delay — GK ignored a ball
+            // at their feet for N ticks, letting attackers claim it.
+            // New logic: rush immediately if very close (within GK_CLAIM_RADIUS),
+            // OR wait LooseTicks delay for balls at medium distance.
+            if (ctx.Ball.Phase == BallPhase.Loose)
             {
                 float distToBall = player.Position.DistanceTo(ctx.Ball.Position);
-                if (distToBall < PhysicsConstants.GK_CLAIM_RADIUS * 3f)
+                bool isVeryClose = distToBall < PhysicsConstants.GK_CLAIM_RADIUS;
+                bool waitedLongEnough = ctx.Ball.LooseTicks >= AIConstants.GK_LOOSE_BALL_RUSH_TICKS;
+
+                if ((isVeryClose || waitedLongEnough) && distToBall < PhysicsConstants.GK_CLAIM_RADIUS * 3f)
                 {
                     return new ActionPlan
                     {
@@ -595,8 +673,10 @@ namespace FootballSim.Engine.Systems
             bool attacksDown = ctx.AttacksDownward(player.TeamId);
             float goalY = attacksDown ? PhysicsConstants.AWAY_GOAL_LINE_Y
                                         : PhysicsConstants.HOME_GOAL_LINE_Y;
-            float goalCentreX = (PhysicsConstants.HOME_GOAL_LEFT_X +
-                                  PhysicsConstants.HOME_GOAL_RIGHT_X) * 0.5f;
+            // Bug 5 fix: goalCentreX selects correct goal per team (was always HOME)
+            float goalCentreX = attacksDown
+                ? (PhysicsConstants.AWAY_GOAL_LEFT_X + PhysicsConstants.AWAY_GOAL_RIGHT_X) * 0.5f
+                : (PhysicsConstants.HOME_GOAL_LEFT_X + PhysicsConstants.HOME_GOAL_RIGHT_X) * 0.5f;
             Vec2 goalCentre = new Vec2(goalCentreX, goalY);
 
             float distToGoal = player.Position.DistanceTo(goalCentre);
@@ -661,7 +741,11 @@ namespace FootballSim.Engine.Systems
 
             for (int i = teamStart; i < teamEnd; i++)
             {
-                if (i == player.PlayerId) continue;
+                // Bug 8 fix: compare array index i against player's array index (PlayerId==index
+                // is guaranteed by engine contract: Players[0..10]=home, [11..21]=away, sequential).
+                // Using ctx.Players[i].PlayerId == player.PlayerId is the safe form if that
+                // contract were ever relaxed, but both are equivalent under current engine rules.
+                if (ctx.Players[i].PlayerId == player.PlayerId) continue;
                 if (!ctx.Players[i].IsActive) continue;
 
                 PassCandidate candidate = ScorePass(ref player, ref ctx.Players[i],
@@ -732,7 +816,9 @@ namespace FootballSim.Engine.Systems
             float pressurePenalty = pressure * AIConstants.PASS_RECEIVER_PRESSURE_PENALTY;
 
             // ── Safe recycle bonus ────────────────────────────────────────────
-            float senderPressure = ComputeSenderPressure(ref player, ctx);
+            // Bug 9 fix: senderPressure now [0,1]. High value = defender close.
+            // Recycle bonus triggers when pressure is HIGH (defender near) and pass is short.
+            float senderPressure = ComputeSenderPressure(ref player, ctx); // [0,1]
             float safeRecycleBonus = 0f;
             if (senderPressure > AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD && isShort)
                 safeRecycleBonus = AIConstants.PASS_SAFE_RECYCLE_BONUS;
@@ -778,16 +864,21 @@ namespace FootballSim.Engine.Systems
             if (nearestDefenderDist > AIConstants.DRIBBLE_DEFENDER_RELEVANT_DISTANCE)
                 return 0.1f; // low score — just walk forward, no "dribble" needed
 
-            // Normalise defender distance to [0,1] in the relevant range
-            float defScore = (nearestDefenderDist - AIConstants.DRIBBLE_DEFENDER_SAFE_DISTANCE)
-                           / (AIConstants.DRIBBLE_DEFENDER_RELEVANT_DISTANCE
-                              - AIConstants.DRIBBLE_DEFENDER_SAFE_DISTANCE);
+            // Bug 2 fix: score peaks when defender is JUST outside safe distance (1v1 range),
+            // falls as defender becomes irrelevant (too far to contest).
+            // Old code: defScore rises from 0→1 as defender moves away → 0 at the 1v1 zone.
+            // New code: contestT falls from 1→0 as defender moves away → peak at the 1v1 zone.
+            float contestT = 1f - (nearestDefenderDist - AIConstants.DRIBBLE_DEFENDER_SAFE_DISTANCE)
+                                 / (AIConstants.DRIBBLE_DEFENDER_RELEVANT_DISTANCE
+                                    - AIConstants.DRIBBLE_DEFENDER_SAFE_DISTANCE);
+            contestT = MathF.Max(0f, contestT);
 
             float roleBias = role.DribbleBias;
             float instinct = player.DribblingAbility;
             float blended = BlendRoleWithInstinct(roleBias, instinct, tactics.FreedomLevel);
 
-            return MathF.Min(1f, blended * defScore);
+            // Base floor of 0.3 so a small dribble option always exists; peak at 1v1 range
+            return MathF.Min(1f, blended * (0.3f + contestT * 0.7f));
         }
 
         /// <summary>
@@ -838,14 +929,20 @@ namespace FootballSim.Engine.Systems
                                        TacticsInput tactics,
                                        MatchContext ctx)
         {
-            float senderPressure = ComputeSenderPressure(ref player, ctx);
-            // Only hold if not immediately under pressure
-            if (senderPressure < AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
+            // Bug 1 fix: ComputeSenderPressure now returns normalised [0,1] (Bug 9 fix).
+            // High pressureLevel (near 1) = defender is close = do NOT hold.
+            // Low pressureLevel (near 0) = open space = modest hold opportunity.
+            float pressureLevel = ComputeSenderPressure(ref player, ctx); // [0,1], 1=maxPressure
+
+            // Gate: under immediate pressure — must act, do not hold
+            if (pressureLevel > AIConstants.PASS_SAFE_RECYCLE_PRESSURE_THRESHOLD * 0.5f)
                 return 0f; // defender too close — must act
 
-            // Normalise pressure to [0,1] — higher pressure = lower hold score
-            float pressureNorm = MathF.Min(1f, senderPressure / AIConstants.PASS_MAX_DISTANCE);
-            float holdScore = pressureNorm * (1f - tactics.BuildUpSpeed) * 0.5f;
+            // Bug 1 fix: inverted normalisation — low pressure → small hold score (no reason to
+            // sit idle), medium pressure → peak hold score (shield ball, wait for run).
+            // pressureLevel=0 (nobody near) → holdScore=0 (just pass freely)
+            // pressureLevel=medium → holdScore peaks (worth shielding ball briefly)
+            float holdScore = pressureLevel * (1f - tactics.BuildUpSpeed) * 0.5f;
 
             return MathF.Max(0f, MathF.Min(1f, holdScore));
         }
@@ -895,7 +992,12 @@ namespace FootballSim.Engine.Systems
             ref PlayerState player, RoleDefinition role, TacticsInput tactics, MatchContext ctx)
         {
             float roleBias = role.RunInBehindTendency;
-            float instinct = player.DribblingAbility; // pace / ability to run
+            // Bug 11 fix: use normalised BaseSpeed as proxy for pace, not DribblingAbility.
+            // DribblingAbility measures ball-control; pace/running ability governs run-in-behind.
+            // A target man with high BaseSpeed but average dribbling should score high here.
+            float instinct = PhysicsConstants.PLAYER_SPRINT_SPEED > 0f
+                ? MathF.Min(1f, player.BaseSpeed / PhysicsConstants.PLAYER_SPRINT_SPEED)
+                : 0.5f;
             float blended = BlendRoleWithInstinct(roleBias, instinct, tactics.FreedomLevel);
 
             // Only viable if team has the ball and there's a runner role
@@ -915,7 +1017,10 @@ namespace FootballSim.Engine.Systems
             ref PlayerState player, RoleDefinition role, TacticsInput tactics, MatchContext ctx)
         {
             float roleBias = role.OverlapRunTendency;
-            float instinct = player.BaseSpeed / PhysicsConstants.PLAYER_SPRINT_SPEED; // pace matters
+            // Bug 14 fix: guard against PLAYER_SPRINT_SPEED==0 and clamp instinct to [0,1]
+            float instinct = PhysicsConstants.PLAYER_SPRINT_SPEED > 0f
+                ? MathF.Min(1f, player.BaseSpeed / PhysicsConstants.PLAYER_SPRINT_SPEED)
+                : 0.5f;
             float blended = BlendRoleWithInstinct(roleBias, instinct, tactics.FreedomLevel);
 
             if (blended < 0.2f) return (player.FormationAnchor, 0f);
@@ -954,7 +1059,13 @@ namespace FootballSim.Engine.Systems
                                             MatchContext ctx)
         {
             float roleBias = role.WidthBias;
-            float blended = BlendRoleWithInstinct(roleBias, 0.5f, tactics.FreedomLevel);
+            // Bug 22 fix: instinct was hardcoded 0.5 — player ability had zero influence.
+            // Now blends pace (for covering ground) with passing ability (for crossing threat).
+            float instinct = PhysicsConstants.PLAYER_SPRINT_SPEED > 0f
+                ? MathUtil.Lerp(MathF.Min(1f, player.BaseSpeed / PhysicsConstants.PLAYER_SPRINT_SPEED),
+                                player.PassingAbility, 0.5f)
+                : 0.5f;
+            float blended = BlendRoleWithInstinct(roleBias, instinct, tactics.FreedomLevel);
             float tacticBonus = tactics.AttackingWidth * 0.25f;
             return MathF.Min(1f, blended * 0.6f + tacticBonus);
         }
@@ -1001,7 +1112,25 @@ namespace FootballSim.Engine.Systems
                 tactics.PressingIntensity
             );
 
-            // Find press target: the ball carrier
+            // Bug 18 fix: also handle loose ball — high-press teams should chase loose balls,
+            // not collapse to formation anchors. A loose ball within triggerDist is a press target.
+            if (ctx.Ball.Phase == BallPhase.Loose)
+            {
+                float distToBall = player.Position.DistanceTo(ctx.Ball.Position);
+                if (distToBall > triggerDist)
+                    return new PressScore { TargetPosition = player.FormationAnchor, Score = 0f, DistToCarrier = distToBall, PressTriggerDist = triggerDist };
+
+                float staminaFactorLoose = player.Stamina >= AIConstants.PRESS_STAMINA_THRESHOLD
+                    ? 1.0f : player.Stamina / AIConstants.PRESS_STAMINA_THRESHOLD;
+                float proximityFactorLoose = 1f - (distToBall / triggerDist);
+                float roleBiasLoose = role.PressBias;
+                float blendedLoose  = BlendRoleWithInstinct(roleBiasLoose, player.Reactions, tactics.FreedomLevel);
+                float scoreLoose    = MathF.Min(1f, blendedLoose * proximityFactorLoose * staminaFactorLoose
+                                               + tactics.PressingIntensity * 0.2f);
+                return new PressScore { TargetPosition = ctx.Ball.Position, Score = scoreLoose, DistToCarrier = distToBall, PressTriggerDist = triggerDist };
+            }
+
+            // Find press target: the ball carrier (owned ball)
             if (ctx.Ball.OwnerId < 0 || ctx.Ball.Phase != BallPhase.Owned)
                 return new PressScore { TargetPosition = player.FormationAnchor, Score = 0f, DistToCarrier = 0f, PressTriggerDist = triggerDist };
 
@@ -1109,8 +1238,12 @@ namespace FootballSim.Engine.Systems
             Vec2 defensiveAnchor = ComputeDefensiveAnchor(ref player, tactics, ctx);
             float distFromAnchor = player.Position.DistanceTo(defensiveAnchor);
 
-            // Not out of position — no urgency
-            if (distFromAnchor < AIConstants.ANCHOR_PULL_RADIUS * 0.5f) return 0f;
+            // Bug 27 fix: was 0.5× threshold, causing oscillation as player drifted
+            // just above/below it on alternate ticks (sprint back → arrive → mark → drift → sprint).
+            // Reduced to 0.3× threshold so ScoreRecover suppresses only when clearly in position,
+            // reducing the chattering window. A full hysteresis state flag on PlayerState would
+            // be the complete fix but is deferred; this is a reliable 80% solution.
+            if (distFromAnchor < AIConstants.ANCHOR_PULL_RADIUS * 0.3f) return 0f;
 
             float urgency = MathF.Min(1f, distFromAnchor / (AIConstants.ANCHOR_PULL_RADIUS * 2f));
             float roleBias = role.OutOfPossessionReturnY;
@@ -1160,26 +1293,34 @@ namespace FootballSim.Engine.Systems
         private static float ComputeXG(ref PlayerState player, Vec2 goalCentre,
                                         float distToGoal, MatchContext ctx)
         {
-            // Base xG from distance: exponential falloff
-            // At 0m: ~1.0. At 12m (120 units): ~0.35. At 35m (350 units): ~0.03
-            float distNorm = distToGoal / AIConstants.SHOOT_OPTIMAL_RANGE;
-            float baseXG = MathF.Exp(-distNorm * 1.2f);
+            // Bug 15 fix: normalise by SHOOT_MAX_RANGE, not SHOOT_OPTIMAL_RANGE.
+            // Using OPTIMAL_RANGE as denominator compressed all shots beyond ~10m to near-zero xG,
+            // making long-range efforts impossible and crowding attackers in the six-yard box.
+            // With MAX_RANGE as denominator, the xG curve is distributed across the full
+            // shooting range — shots from 25m (typical edge-of-box) get realistic ~0.05-0.10 xG.
+            float distNorm = distToGoal / AIConstants.SHOOT_MAX_RANGE;
+            float baseXG   = MathF.Exp(-distNorm * AIConstants.XG_DISTANCE_DECAY);
 
-            // Angle factor: shots from central positions are better
+            // Angle factor: shots from central positions are better (0.5–1.0 range)
             float pitchCentreX = PhysicsConstants.PITCH_WIDTH * 0.5f;
-            float angleOffset = MathF.Abs(player.Position.X - pitchCentreX);
-            float maxAngleOff = PhysicsConstants.PITCH_WIDTH * 0.5f;
-            float angleFactor = 1f - (angleOffset / maxAngleOff) * 0.5f; // 0.5–1.0
+            float angleOffset  = MathF.Abs(player.Position.X - pitchCentreX);
+            float maxAngleOff  = PhysicsConstants.PITCH_WIDTH * 0.5f;
+            float angleFactor  = 1f - (angleOffset / maxAngleOff) * 0.5f;
 
-            // Shooting ability modifier
-            float abilityMod = 0.5f + player.ShootingAbility * 0.5f; // 0.5–1.0
+            // Shooting ability modifier (0.5–1.0 range)
+            float abilityMod = 0.5f + player.ShootingAbility * 0.5f;
 
             float xG = baseXG * angleFactor * abilityMod;
 
-            // Block penalty: count defenders in shooting lane
+            // Bug 16 fix: multiplicative decay per blocker (was additive, could go negative).
+            // Old: xG -= blockers * penalty * xG → with 4 blockers at 0.25 each: xG = 0.
+            // New: each blocker multiplies xG by (1 - penalty) → asymptotically approaches 0,
+            // never reaches it. A penalty kick with 4 defenders in the lane still has xG > 0.
             int blockersInLane = CountBlockersInShootingLane(ref player, goalCentre,
                                                                player.TeamId, ctx);
-            xG -= blockersInLane * AIConstants.XG_DEFENDER_BLOCK_PENALTY * xG;
+            float blockMultiplier = MathF.Pow(1f - AIConstants.XG_DEFENDER_BLOCK_PENALTY,
+                                               blockersInLane);
+            xG *= blockMultiplier;
 
             return MathF.Max(0f, MathF.Min(1f, xG));
         }
@@ -1209,8 +1350,11 @@ namespace FootballSim.Engine.Systems
         {
             // Find opponent GK
             int gkId = FindOpponentGK(player.TeamId, ctx);
-            float goalHalfWidth = (PhysicsConstants.HOME_GOAL_RIGHT_X -
-                                    PhysicsConstants.HOME_GOAL_LEFT_X) * 0.5f;
+            // Bug 17 fix: use correct goal half-width per attacking direction (was always HOME)
+            bool aimAttacksDown = ctx.AttacksDownward(player.TeamId);
+            float goalHalfWidth = aimAttacksDown
+                ? (PhysicsConstants.AWAY_GOAL_RIGHT_X - PhysicsConstants.AWAY_GOAL_LEFT_X) * 0.5f
+                : (PhysicsConstants.HOME_GOAL_RIGHT_X - PhysicsConstants.HOME_GOAL_LEFT_X) * 0.5f;
 
             if (gkId < 0)
                 return goalCentre; // No GK found — aim centre
@@ -1294,10 +1438,17 @@ namespace FootballSim.Engine.Systems
             return MathF.Max(0f, 1f - nearest / AIConstants.PASS_TIGHT_MARKING_RADIUS);
         }
 
-        /// <summary>Nearest opponent distance to the ball carrier (sender pressure).</summary>
+        /// <summary>
+        /// Nearest opponent PRESSURE on the ball carrier, normalised to [0,1].
+        /// Bug 9 fix: previously returned raw distance (0-9999). Now returns 0=no
+        /// pressure (far away) to 1=maximum pressure (within tight-marking radius).
+        /// Matches the same scale as ComputeReceiverPressure so both can be used
+        /// together in ScorePass comparisons without unit mismatch.
+        /// </summary>
         private static float ComputeSenderPressure(ref PlayerState sender, MatchContext ctx)
         {
-            return FindNearestOpponentDistance(ref sender, ctx);
+            float dist = FindNearestOpponentDistance(ref sender, ctx);
+            return MathF.Max(0f, 1f - dist / AIConstants.PASS_TIGHT_MARKING_RADIUS);
         }
 
         /// <summary>
@@ -1341,7 +1492,19 @@ namespace FootballSim.Engine.Systems
             float targetX = isRightSide
                 ? PhysicsConstants.PITCH_WIDTH - 50f
                 : 50f;
-            return new Vec2(targetX, player.FormationAnchor.Y);
+
+            // Bug 26 fix: FormationAnchor.Y is fixed pre-match — wide players held width
+            // at their defensive Y even during attacks deep in opposition territory.
+            // Blend 40% toward ball Y so the wide channel is maintained in the correct
+            // vertical zone. Clamped to avoid extreme forward/backward positions.
+            float ballY   = ctx.Ball.Position.Y;
+            float anchorY = player.FormationAnchor.Y;
+            float widthY  = MathUtil.Lerp(anchorY, ballY, 0.4f);
+            widthY = Math.Clamp(widthY,
+                PhysicsConstants.PITCH_TOP    + 50f,
+                PhysicsConstants.PITCH_BOTTOM - 50f);
+
+            return new Vec2(targetX, widthY);
         }
 
         /// <summary>
@@ -1352,17 +1515,21 @@ namespace FootballSim.Engine.Systems
                                                    Vec2 carrierPos,
                                                    MatchContext ctx)
         {
-            // Side bias: player stays on their formation anchor side
+            // Bug 23 fix: was using SUPPORT_IDEAL_DISTANCE (~80-120 units) as a raw X offset.
+            // This placed support positions off the pitch edge for any central carrier.
+            // Now uses a scaled lateral offset based on attacking width tactic (30-80 units).
+            TacticsInput tactics = player.TeamId == 0 ? ctx.HomeTeam.Tactics : ctx.AwayTeam.Tactics;
+            float lateralOffset = MathUtil.Lerp(30f, 80f, tactics.AttackingWidth);
             float xSide = player.FormationAnchor.X > PhysicsConstants.PITCH_WIDTH * 0.5f
-                ? AIConstants.SUPPORT_IDEAL_DISTANCE : -AIConstants.SUPPORT_IDEAL_DISTANCE;
+                ? lateralOffset : -lateralOffset;
 
             bool attacksDown = ctx.AttacksDownward(player.TeamId);
-            float yOffset = attacksDown ? -AIConstants.SUPPORT_IDEAL_DISTANCE * 0.3f
-                                           : AIConstants.SUPPORT_IDEAL_DISTANCE * 0.3f;
+            // Y offset: slightly behind carrier (toward own half) — easier ball receipt angle
+            float yOffset = attacksDown ? -lateralOffset * 0.3f : lateralOffset * 0.3f;
 
             return new Vec2(
-                Math.Clamp(carrierPos.X + xSide, PhysicsConstants.PITCH_LEFT,
-                            PhysicsConstants.PITCH_RIGHT),
+                Math.Clamp(carrierPos.X + xSide, PhysicsConstants.PITCH_LEFT + 30f,
+                            PhysicsConstants.PITCH_RIGHT - 30f),
                 Math.Clamp(carrierPos.Y + yOffset, PhysicsConstants.PITCH_TOP,
                             PhysicsConstants.PITCH_BOTTOM)
             );
@@ -1433,7 +1600,10 @@ namespace FootballSim.Engine.Systems
             }
             else if (cbCount == 1)
             {
-                targetX = cb1Pos.X; // just target the one CB
+                // Bug 13 fix: running straight at the lone CB is the worst possible run.
+                // Target the channel to the side closer to this player's formation anchor.
+                float channelOffset = player.FormationAnchor.X > cb1Pos.X ? 60f : -60f;
+                targetX = cb1Pos.X + channelOffset;
             }
             else
             {
@@ -1563,10 +1733,16 @@ namespace FootballSim.Engine.Systems
                                                     int defensiveTeam,
                                                     MatchContext ctx)
         {
+            // Bug 21 fix: danger should measure proximity to the GOAL BEING DEFENDED
+            // (i.e., the defending team's goal, which the opponent is attacking toward).
+            // defAttacksDown=true → home defends top (Y=0) when home attacks down.
+            // So the defended goal is at PITCH_TOP when defAttacksDown=true.
+            // This was already geometrically correct for first half — the fix ensures
+            // it also works in the second half when AttacksDownward has been flipped.
             bool defAttacksDown = ctx.AttacksDownward(defensiveTeam);
             float oppGoalY = defAttacksDown
-                ? PhysicsConstants.PITCH_TOP    // defending team's goal is at top
-                : PhysicsConstants.PITCH_BOTTOM;
+                ? PhysicsConstants.PITCH_TOP    // defending team's goal at top while they attack down
+                : PhysicsConstants.PITCH_BOTTOM; // defending team's goal at bottom while they attack up
 
             float distToGoal = opp.Position.DistanceTo(
                 new Vec2(PhysicsConstants.PITCH_WIDTH * 0.5f, oppGoalY));
@@ -1608,6 +1784,37 @@ namespace FootballSim.Engine.Systems
             return count;
         }
 
+        /// <summary>
+        /// Bug 7 fix: finds the most advanced teammate for a GK clearance kick.
+        /// "Most advanced" = furthest from the GK's own goal in the attacking direction.
+        /// Excludes the GK themselves. Returns -1 if no teammate found.
+        /// </summary>
+        private static int FindGKClearanceTarget(ref PlayerState gk, MatchContext ctx)
+        {
+            int teamStart = gk.TeamId == 0 ? 0 : 11;
+            int teamEnd   = gk.TeamId == 0 ? 11 : 22;
+            bool attacksDown = ctx.AttacksDownward(gk.TeamId);
+
+            int   bestId   = -1;
+            float bestY    = attacksDown ? float.MaxValue : float.MinValue;
+
+            for (int i = teamStart; i < teamEnd; i++)
+            {
+                if (!ctx.Players[i].IsActive) continue;
+                if (ctx.Players[i].PlayerId == gk.PlayerId) continue;
+                if (ctx.Players[i].Role == PlayerRole.GK ||
+                    ctx.Players[i].Role == PlayerRole.SK) continue;
+
+                float y = ctx.Players[i].Position.Y;
+                if (attacksDown ? y < bestY : y > bestY)
+                {
+                    bestY = y;
+                    bestId = ctx.Players[i].PlayerId;
+                }
+            }
+            return bestId;
+        }
+
         /// <summary>Finds the PlayerId of the opponent GK. Returns -1 if not found.</summary>
         private static int FindOpponentGK(int attackingTeam, MatchContext ctx)
         {
@@ -1629,13 +1836,14 @@ namespace FootballSim.Engine.Systems
         // =====================================================================
 
         private static void DebugLogWithBall(ref PlayerState player, ref ActionPlan best,
-            ShotScore shot, PassCandidate pass, float cross, float drib, float hold)
+            ShotScore shot, PassCandidate pass, float cross, float drib, float hold,
+            int tick) // Bug 28 fix: tick passed explicitly so log shows correct tick number
         {
             if (!DEBUG) return;
             if (DEBUG_PLAYER_ID >= 0 && DEBUG_PLAYER_ID != player.PlayerId) return;
 
             Console.WriteLine(
-                $"[DecisionSystem] Tick ?  P{player.PlayerId} (Team{player.TeamId} {player.Role}) " +
+                $"[DecisionSystem] Tick {tick}  P{player.PlayerId} (Team{player.TeamId} {player.Role}) " +
                 $"HAS BALL → chose {best.Action} score={best.Score:F3} | " +
                 $"SHOOT={shot.Score:F3}(xG={shot.XG:F3}) " +
                 $"PASS={pass.Score:F3}(→P{pass.ReceiverId}) " +

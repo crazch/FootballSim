@@ -190,6 +190,7 @@ namespace FootballSim.Engine.Systems
         {
             player.Action = plan.Action;
             player.TargetPosition = plan.TargetPosition;
+            player.IsSprinting = plan.ShouldSprint; // Bug 3 fix
 
             ApplySprintFlag(ref player, ctx);
 
